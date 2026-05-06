@@ -1,61 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { projectsAPI, usersAPI } from '../api';
-import { Modal, Field, Button } from './UI';
+import React, { useState } from 'react';
+import { projectsAPI } from '../api';
+import { Modal, Avatar } from './UI';
 
-export default function ProjectModal({ project, onClose, onSaved }) {
-  const isEdit = !!project;
-  const [form, setForm]     = useState({ name: project?.name || '', description: project?.description || '', member_ids: project?.members?.map(m => m.id) || [] });
-  const [users, setUsers]   = useState([]);
-  const [error, setError]   = useState('');
-  const [saving, setSaving] = useState(false);
+export default function ProjectModal({ project, users, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:        project?.name        || '',
+    description: project?.description || '',
+    memberIds:   project?.members?.map(m=>m.id||m) || [],
+  });
+  const [loading, setLoading] = useState(false);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  useEffect(() => { usersAPI.list().then(r => setUsers(r.data)); }, []);
+  const toggleMember = (id) => setForm(f=>({
+    ...f,
+    memberIds: f.memberIds.includes(id) ? f.memberIds.filter(x=>x!==id) : [...f.memberIds, id],
+  }));
 
-  const toggleMember = (id) => {
-    setForm(f => ({
-      ...f,
-      member_ids: f.member_ids.includes(id) ? f.member_ids.filter(x => x !== id) : [...f.member_ids, id],
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!form.name.trim()) { setError('Project name is required'); return; }
-    setSaving(true);
+  const handleSave = async() => {
+    if (!form.name.trim()) return;
+    setLoading(true);
     try {
-      const res = isEdit
-        ? await projectsAPI.update(project.id, form)
-        : await projectsAPI.create(form);
-      onSaved(res.data);
-      onClose();
-    } catch (e) {
-      setError(e.response?.data?.error || 'Failed to save project');
-    } finally { setSaving(false); }
+      if (project) await projectsAPI.update(project.id, form);
+      else          await projectsAPI.create(form);
+      onSaved();
+    } finally { setLoading(false); }
   };
-
-  const inp = { width: '100%', padding: '7px 10px', border: '0.5px solid var(--color-border-secondary)', borderRadius: 'var(--border-radius-md)', background: 'var(--color-background-primary)', color: 'var(--color-text-primary)', fontSize: 13, fontFamily: 'var(--font-sans)' };
 
   return (
-    <Modal title={isEdit ? 'Edit project' : 'New project'} onClose={onClose}>
-      <Field label="Project name">
-        <input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Project name" />
-      </Field>
-      <Field label="Description">
-        <textarea style={{ ...inp, resize: 'vertical', minHeight: 70 }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-      </Field>
-      <Field label="Members">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-          {users.map(u => (
-            <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.member_ids.includes(u.id)} onChange={() => toggleMember(u.id)} />
-              {u.name}
-            </label>
-          ))}
+    <Modal title={project ? 'Edit Project' : 'New Project'} onClose={onClose}>
+      <div className="field"><label>Project Name *</label><input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Website Redesign" /></div>
+      <div className="field"><label>Description</label><textarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="What is this project about?" /></div>
+      <div className="field">
+        <label>Team Members</label>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:4}}>
+          {users.map(u=>{
+            const sel = form.memberIds.includes(u.id);
+            return (
+              <div key={u.id} onClick={()=>toggleMember(u.id)}
+                style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:'var(--radius-sm)',border:`1px solid ${sel?'var(--accent)':'var(--border)'}`,background:sel?'rgba(99,102,241,0.1)':'transparent',cursor:'pointer',transition:'all 0.2s'}}>
+                <Avatar user={u} size={24} />
+                <span style={{fontSize:13,flex:1,color:sel?'var(--text-primary)':'var(--text-secondary)'}}>{u.name}</span>
+                {sel && <span style={{color:'var(--accent)',fontSize:14}}>✓</span>}
+              </div>
+            );
+          })}
         </div>
-      </Field>
-      {error && <div style={{ color: 'var(--color-text-danger)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save project'}</Button>
+      </div>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:'0.5rem'}}>
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading?'Saving…':'Save Project'}</button>
       </div>
     </Modal>
   );

@@ -1,51 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge } from './UI';
 
 const links = [
-  { to: '/',         label: 'Dashboard' },
-  { to: '/projects', label: 'Projects' },
-  { to: '/tasks',    label: 'Tasks' },
-  { to: '/team',     label: 'Team' },
+  { to:'/',         label:'Dashboard', icon:'⊞' },
+  { to:'/projects', label:'Projects',  icon:'◫' },
+  { to:'/tasks',    label:'Tasks',     icon:'☑' },
+  { to:'/team',     label:'Team',      icon:'⊛' },
 ];
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <nav style={{
-      background: 'var(--color-background-primary)',
-      borderBottom: '0.5px solid var(--color-border-tertiary)',
-      padding: '0 1.5rem',
-      display: 'flex', alignItems: 'center', gap: '0.5rem',
-      height: 52, position: 'sticky', top: 0, zIndex: 100,
-    }}>
-      <div style={{ fontSize: 15, fontWeight: 500, marginRight: 'auto' }}>&#9670; TaskFlow</div>
+    <nav className="navbar">
+      <div className="nav-logo">⬡ TaskFlow</div>
 
-      {links.map(({ to, label }) => (
-        <NavLink key={to} to={to} end={to === '/'}
-          style={({ isActive }) => ({
-            padding: '6px 12px', borderRadius: 'var(--border-radius-md)',
-            fontSize: 13, cursor: 'pointer', textDecoration: 'none',
-            background: isActive ? 'var(--color-background-secondary)' : 'transparent',
-            color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-          })}>
-          {label}
-        </NavLink>
-      ))}
+      <div style={{display:'flex', gap:2, flex:1}}>
+        {links.map(({ to, label, icon }) => (
+          <NavLink key={to} to={to} end={to === '/'}
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span style={{fontSize:14}}>{icon}</span> {label}
+          </NavLink>
+        ))}
+      </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginLeft:'auto'}}>
         <Badge role={user?.role} />
-        <Avatar user={user} size={32} />
-        <span style={{ fontSize: 13 }}>{user?.name?.split(' ')[0]}</span>
-        <button
-          onClick={handleLogout}
-          style={{ padding: '4px 10px', fontSize: 12, borderRadius: 'var(--border-radius-md)', border: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', color: 'var(--color-text-primary)', cursor: 'pointer' }}>
-          Sign out
+        <div style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer', padding:'4px 8px', borderRadius:'var(--radius-sm)', transition:'background 0.2s'}}
+          onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <Avatar user={user} size={30} />
+          <span style={{fontSize:13, fontWeight:500}}>{user?.name?.split(' ')[0]}</span>
+        </div>
+        <button className="btn btn-sm" onClick={handleLogout}
+          style={{display:'flex',alignItems:'center',gap:5}}>
+          <span style={{fontSize:13}}>⇤</span> Sign out
         </button>
       </div>
     </nav>

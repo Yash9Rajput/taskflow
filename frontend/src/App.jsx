@@ -8,15 +8,16 @@ import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Team from './pages/Team';
+import './index.css';
 
 function RequireAuth() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user)   return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-background-tertiary)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <Navbar />
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '1.5rem' }}>
+      <div className="page-wrap">
         <Outlet />
       </div>
     </div>
@@ -26,7 +27,7 @@ function RequireAuth() {
 function GuestOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user)    return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/" replace />;
   return children;
 }
 
