@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import CursorGlow from './components/CursorGlow';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -15,7 +16,8 @@ function RequireAuth() {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div style={{ minHeight:'100vh', background:'var(--bg)' }}>
+      <CursorGlow />
       <Navbar />
       <div className="page-wrap">
         <Outlet />

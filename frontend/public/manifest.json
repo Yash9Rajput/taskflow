@@ -1,0 +1,11 @@
+{
+  "short_name": "TaskFlow",
+  "name": "TaskFlow — Team Task Manager",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0a0a0f",
+  "background_color": "#0a0a0f"
+}
