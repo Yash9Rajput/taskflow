@@ -118,7 +118,7 @@ export default function Footer() {
       {/* Tech stack bar */}
       <div style={{ borderTop: '1px solid var(--border)', padding: '1rem 1.5rem' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-          {['React', 'Node.js', 'Express', 'PostgreSQL', 'Railway', 'Claude AI'].map(tech => (
+          {['React', 'Node.js', 'Express', 'PostgreSQL', 'Railway', 'JWT Auth'].map(tech => (
             <span key={tech} style={{ fontSize: 11, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--text-3)', display: 'inline-block' }}/>
               {tech}

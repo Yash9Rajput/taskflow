@@ -29,7 +29,7 @@ export default function AboutDeveloper() {
   ];
 
   const projects = [
-    { icon: '⬡', title: 'TaskFlow',        desc: 'Full-stack team task manager with AI integration, RBAC, real-time dashboard, and Railway deployment.',  tech: 'React · Node · PostgreSQL · Claude AI', color: '#6366f1' },
+    { icon: '⬡', title: 'TaskFlow',        desc: 'Full-stack team task manager with AI integration, RBAC, real-time dashboard, and Railway deployment.',  tech: 'React · Node · PostgreSQL · Rest APIs', color: '#6366f1' },
     { icon: '🔐', title: 'Auth System',    desc: 'JWT-based authentication with role-based access, refresh tokens, and bcrypt password hashing.',           tech: 'Node.js · Express · JWT · bcryptjs',   color: '#8b5cf6' },
     { icon: '📊', title: 'Dashboard UI',   desc: 'Responsive analytics dashboard with donut charts, bar charts, sparklines, and animated data viz.',        tech: 'React · CSS · SVG Charts',             color: '#06b6d4' },
     { icon: '✦',  title: 'AI Integration', desc: 'Embedded Claude AI assistant with file upload, multi-turn conversation, and contextual project awareness.',tech: 'React · Anthropic API · Streams',       color: '#a78bfa' },
@@ -53,7 +53,7 @@ export default function AboutDeveloper() {
         <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Photo */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: 120, height: 120, borderRadius: 20, overflow: 'hidden', border: '3px solid rgba(99,102,241,0.4)', boxShadow: '0 0 40px rgba(99,102,241,0.25)' }}>
+            <div style={{ width: 120, height: 120, borderRadius: 20, overflow: 'hidden', border: '3px solid rgba(99,102,241,0.4)', boxShadow: '0 0 40px rgba(31, 63, 61, 0.25)' }}>
               <img src="/yash.jpg" alt="Yash Rajput" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);font-size:40px;font-weight:700;color:white;font-family:var(--font-d)">Y</div>'; }} />
             </div>
             <div style={{ position: 'absolute', bottom: -6, right: -6, width: 24, height: 24, borderRadius: '50%', background: '#10b981', border: '2px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</div>
@@ -63,9 +63,9 @@ export default function AboutDeveloper() {
           <div style={{ flex: 1, minWidth: 260 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
               <h2 style={{ fontFamily: 'var(--font-d)', fontSize: 24, fontWeight: 700 }}>Yash Rajput</h2>
-              <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', fontSize: 11, fontWeight: 600, color: '#34d399' }}>Available for Work</span>
+              {/* <span style={{ padding: '3px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', fontSize: 11, fontWeight: 600, color: '#34d399' }}>Available for Work</span> */}
             </div>
-            <div style={{ fontSize: 14, color: '#a5b4fc', fontWeight: 500, marginBottom: '0.75rem' }}>Full-Stack Developer & UI Engineer</div>
+            <div style={{ fontSize: 14, color: '#a5b4fc', fontWeight: 500, marginBottom: '0.75rem' }}>Full-Stack Developer & AI Engineer</div>
             <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.85, marginBottom: '1.25rem' }}>
               A passionate full-stack developer from India who loves turning complex problems into clean, beautiful software. I build end-to-end applications — from database schema to pixel-perfect UI — with a focus on developer experience and real-world usability.
             </p>
@@ -132,11 +132,11 @@ export default function AboutDeveloper() {
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: '1rem' }}>JOURNEY</div>
         <h2 style={{ fontFamily: 'var(--font-d)', fontSize: 22, fontWeight: 700, marginBottom: '1.5rem' }}>The Path Here</h2>
         <div className="card" style={{ padding: '2rem' }}>
-          <TimelineItem year="'21" title="Started Coding"          desc="Picked up programming with Python and basic web development. Fell in love with building things from scratch."       color="#6366f1" />
-          <TimelineItem year="'22" title="Frontend Focus"          desc="Dived deep into React.js and modern CSS. Built dozens of UI components and learned design systems."               color="#8b5cf6" />
-          <TimelineItem year="'23" title="Full-Stack Jump"         desc="Added Node.js, Express, and SQL to the stack. Built first end-to-end authenticated web application."             color="#06b6d4" />
-          <TimelineItem year="'24" title="AI Integration"          desc="Started integrating LLM APIs into web apps. Explored prompt engineering and multi-modal AI capabilities."        color="#10b981" />
-          <TimelineItem year="'25" title="TaskFlow"                desc="Built TaskFlow — a complete production system demonstrating everything learned: full-stack, AI, DevOps, UX."     color="#f59e0b" last />
+          <TimelineItem year="'22" title="Started Coding"          desc="Picked up programming with Python and basic web development. Fell in love with building things from scratch."       color="#6366f1" />
+          <TimelineItem year="'23" title="Frontend Focus"          desc="Dived deep into React.js and modern CSS. Built dozens of UI components and learned design systems."               color="#8b5cf6" />
+          <TimelineItem year="'24" title="Full-Stack Jump"         desc="Added Node.js, Express, and SQL to the stack. Built first end-to-end authenticated web application."             color="#06b6d4" />
+          <TimelineItem year="'25" title="AI Integration"          desc="Started integrating LLM APIs into web apps. Explored prompt engineering and multi-modal AI capabilities."        color="#10b981" />
+          <TimelineItem year="'26" title="TaskFlow"                desc="Built TaskFlow — a complete production system demonstrating everything learned: full-stack, AI, DevOps, UX."     color="#f59e0b" last />
         </div>
       </div>
 
