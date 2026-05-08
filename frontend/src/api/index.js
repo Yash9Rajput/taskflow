@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   //baseURL: process.env.REACT_APP_API_URL || '/api',
-    baseURL: 'https://taskflow-production-9b13.up.railway.app/api',
+      baseURL: 'https://taskflow-production-9b13.up.railway.app/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -59,6 +59,11 @@ export const tasksAPI = {
 // Dashboard
 export const dashboardAPI = {
   stats: () => api.get('/dashboard'),
+};
+
+// AI
+export const aiAPI = {
+  chat: (messages, system) => api.post('/ai/chat', { messages, system }),
 };
 
 export default api;
