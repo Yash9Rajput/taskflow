@@ -23,6 +23,7 @@ initDb().then(() => {
   app.use('/api/projects',  require('./routes/projects'));
   app.use('/api/tasks',     require('./routes/tasks'));
   app.use('/api/dashboard', require('./routes/dashboard'));
+  app.use('/api/ai',        require('./routes/ai'));
 
   app.use((err, req, res, next) => {
     console.error(err.stack);

@@ -61,18 +61,21 @@ export default function AI() {
         }
       }
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/ai/chat`, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:1000,
           system:`You are an expert AI assistant integrated into TaskFlow, a team task management platform. You help users with project planning, task management, productivity, writing, brainstorming, and answering any questions. The current user is ${user?.name} with role ${user?.role}. Be helpful, concise, and professional. Use markdown formatting when appropriate.`,
           messages: apiMessages,
         }),
       });
       const data = await res.json();
-      const reply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+      if (!res.ok) throw new Error(data.error || 'API error');
+      const reply = data.content || 'Sorry, I could not generate a response.';
       setMessages(m => [...m, { role:'assistant', content:reply }]);
     } catch (err) {
       setMessages(m => [...m, { role:'assistant', content:'Sorry, I encountered an error. Please try again.' }]);
@@ -178,7 +181,7 @@ export default function AI() {
               {loading?'…':'Send ↑'}
             </button>
           </div>
-          <div style={{fontSize:10,color:'var(--text-3)',textAlign:'center',marginTop:6}}>Developed by Yash · Integrate with ❤️</div>
+          <div style={{fontSize:10,color:'var(--text-3)',textAlign:'center',marginTop:6}}>Developed by Yash Rajput · Integrated with ❤️</div>
         </div>
       </div>
     </div>
