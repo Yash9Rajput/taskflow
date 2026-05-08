@@ -54,7 +54,7 @@ export default function AboutDeveloper() {
           {/* Photo */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <div style={{ width: 120, height: 120, borderRadius: 20, overflow: 'hidden', border: '3px solid rgba(99,102,241,0.4)', boxShadow: '0 0 40px rgba(31, 63, 61, 0.25)' }}>
-              <img src="/viraj_7.jpg" alt="Yash Rajput" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);font-size:40px;font-weight:700;color:white;font-family:var(--font-d)">Y</div>'; }} />
+              <img src="/viraj_7.jpeg" alt="Yash Rajput" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);font-size:40px;font-weight:700;color:white;font-family:var(--font-d)">Y</div>'; }} />
             </div>
             <div style={{ position: 'absolute', bottom: -6, right: -6, width: 24, height: 24, borderRadius: '50%', background: '#10b981', border: '2px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</div>
           </div>
