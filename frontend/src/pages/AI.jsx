@@ -91,7 +91,7 @@ export default function AI() {
           <div style={{width:44,height:44,borderRadius:'var(--r-md)',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 8px 24px rgba(99,102,241,0.4)'}}>✦</div>
           <div>
             <h1 style={{fontFamily:'var(--font-d)',fontSize:22,fontWeight:700,background:'linear-gradient(135deg,#a5b4fc,#c4b5fd)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>AI Assistant</h1>
-            <p style={{fontSize:12,color:'var(--text-3)'}}>Powered by Claude · Ask anything about your projects</p>
+            <p style={{fontSize:12,color:'var(--text-3)'}}>Ask anything about your projects</p>
           </div>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function AI() {
               {loading?'…':'Send ↑'}
             </button>
           </div>
-          <div style={{fontSize:10,color:'var(--text-3)',textAlign:'center',marginTop:6}}>Powered by Claude · Shift+Enter for new line</div>
+          <div style={{fontSize:10,color:'var(--text-3)',textAlign:'center',marginTop:6}}>Developed by Yash Rajput · Integrated with ❤️</div>
         </div>
       </div>
     </div>
