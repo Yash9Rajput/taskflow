@@ -34,3 +34,19 @@ router.patch('/:id/role',
 );
 
 module.exports = router;
+
+// DELETE /api/users/:id  — remove a user (admin only)
+router.delete('/:id', authenticate, requireAdmin, (req, res) => {
+  const db = getDb();
+  const target = db.prepare('SELECT id, email FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' });
+
+  // Unassign their tasks instead of deleting them
+  db.prepare("UPDATE tasks SET assignee_id = NULL WHERE assignee_id = ?").run(req.params.id);
+  // Remove from project members
+  db.prepare("DELETE FROM project_members WHERE user_id = ?").run(req.params.id);
+  // Delete the user
+  db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
+  res.json({ message: 'User removed successfully' });
+});

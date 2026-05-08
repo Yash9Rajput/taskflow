@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  //baseURL: process.env.REACT_APP_API_URL || '/api',
-  baseURL: 'https://taskflow-production-9b13.up.railway.app/api',
+  baseURL: process.env.REACT_APP_API_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -35,6 +34,7 @@ export const usersAPI = {
   list:       ()           => api.get('/users'),
   updateRole: (id, role)   => api.patch(`/users/${id}/role`, { role }),
   invite:     (data)       => api.post('/auth/invite', data),
+  delete:     (id)         => api.delete(`/users/${id}`),
 };
 
 // Projects
