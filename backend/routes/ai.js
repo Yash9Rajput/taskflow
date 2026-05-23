@@ -3,7 +3,6 @@ const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/ai/chat — proxy to Groq API (free & fast)
 router.post('/chat', authenticate, async (req, res) => {
   const { messages, system } = req.body;
 
@@ -13,13 +12,10 @@ router.post('/chat', authenticate, async (req, res) => {
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({ 
-      error: 'AI service not configured. Add GROQ_API_KEY to Railway environment variables.' 
-    });
+    return res.status(503).json({ error: 'AI service not configured. Add GROQ_API_KEY to environment variables.' });
   }
 
   try {
-    // Build messages array with system message prepended
     const groqMessages = [
       {
         role: 'system',
@@ -35,7 +31,7 @@ router.post('/chat', authenticate, async (req, res) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',  // Free, fast Llama 3 model
+        model: 'llama3-70b-8192',
         max_tokens: 1024,
         messages: groqMessages,
         temperature: 0.7,
@@ -46,9 +42,7 @@ router.post('/chat', authenticate, async (req, res) => {
 
     if (!response.ok) {
       console.error('Groq API error:', data);
-      return res.status(response.status).json({ 
-        error: data.error?.message || 'AI API error' 
-      });
+      return res.status(response.status).json({ error: data.error?.message || 'AI API error' });
     }
 
     const content = data.choices?.[0]?.message?.content || '';

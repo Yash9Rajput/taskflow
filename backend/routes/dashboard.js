@@ -4,50 +4,60 @@ const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/dashboard  — returns summary stats for the current user
-router.get('/', authenticate, (req, res) => {
-  const db = getDb();
-  const isAdmin = req.user.role === 'admin';
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const db = getDb();
+    const isAdmin = req.user.role === 'admin';
 
-  const taskFilter = isAdmin ? '' : 'AND (t.assignee_id = ? OR t.created_by = ?)';
-  const taskParams = isAdmin ? [] : [req.user.id, req.user.id];
+    const taskFilter = isAdmin ? '' : 'AND (t.assignee_id = $1 OR t.created_by = $2)';
+    const taskParams = isAdmin ? [] : [req.user.id, req.user.id];
 
-  const stats = db.prepare(`
-    SELECT
-      COUNT(*) as total_tasks,
-      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
-      SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as in_progress,
-      SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as todo,
-      SUM(CASE WHEN status != 'done' AND due_date < date('now') THEN 1 ELSE 0 END) as overdue
-    FROM tasks t WHERE 1=1 ${taskFilter}
-  `).get(...taskParams);
+    const statsSQL = `
+      SELECT
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
+        SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as todo,
+        SUM(CASE WHEN status != 'done' AND due_date < CURRENT_DATE THEN 1 ELSE 0 END) as overdue
+      FROM tasks t WHERE 1=1 ${taskFilter}
+    `;
+    const stats = await db.prepare(statsSQL).get(...taskParams);
 
-  const recentTasks = db.prepare(`
-    SELECT t.*, u.name as assignee_name, p.name as project_name
-    FROM tasks t
-    LEFT JOIN users u ON u.id = t.assignee_id
-    LEFT JOIN projects p ON p.id = t.project_id
-    WHERE 1=1 ${taskFilter}
-    ORDER BY t.due_date ASC, t.created_at DESC
-    LIMIT 10
-  `).all(...taskParams);
+    const recentSQL = `
+      SELECT t.*, u.name as assignee_name, p.name as project_name
+      FROM tasks t
+      LEFT JOIN users u ON u.id = t.assignee_id
+      LEFT JOIN projects p ON p.id = t.project_id
+      WHERE 1=1 ${taskFilter}
+      ORDER BY t.due_date ASC, t.created_at DESC
+      LIMIT 10
+    `;
+    const recentTasks = await db.prepare(recentSQL).all(...taskParams);
 
-  const projects = db.prepare(isAdmin
-    ? 'SELECT * FROM projects ORDER BY created_at DESC'
-    : `SELECT p.* FROM projects p
-       INNER JOIN project_members pm ON pm.project_id = p.id
-       WHERE pm.user_id = ? ORDER BY p.created_at DESC`
-  ).all(...(isAdmin ? [] : [req.user.id]));
+    let projects;
+    if (isAdmin) {
+      projects = await db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all();
+    } else {
+      projects = await db.prepare(`
+        SELECT p.* FROM projects p
+        INNER JOIN project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = ? ORDER BY p.created_at DESC
+      `).all(req.user.id);
+    }
 
-  const projectsWithStats = projects.map(p => {
-    const ts = db.prepare(`
-      SELECT COUNT(*) as total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) as done
-      FROM tasks WHERE project_id = ?
-    `).get(p.id);
-    return { ...p, total_tasks: ts.total, done_tasks: ts.done };
-  });
+    const projectsWithStats = await Promise.all(projects.map(async p => {
+      const ts = await db.prepare(`
+        SELECT COUNT(*) as total, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) as done
+        FROM tasks WHERE project_id = ?
+      `).get(p.id);
+      return { ...p, total_tasks: ts.total, done_tasks: ts.done };
+    }));
 
-  res.json({ stats, recent_tasks: recentTasks, projects: projectsWithStats });
+    res.json({ stats, recent_tasks: recentTasks, projects: projectsWithStats });
+  } catch (err) {
+    console.error('Dashboard error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 module.exports = router;
