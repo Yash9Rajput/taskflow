@@ -18,7 +18,7 @@ router.get('/', authenticate, async (req, res) => {
         SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done,
         SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as in_progress,
         SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as todo,
-        SUM(CASE WHEN status != 'done' AND due_date < CURRENT_DATE THEN 1 ELSE 0 END) as overdue
+        SUM(CASE WHEN status != 'done' AND due_date IS NOT NULL AND due_date::date < CURRENT_DATE THEN 1 ELSE 0 END) as overdue
       FROM tasks t WHERE 1=1 ${taskFilter}
     `;
     const stats = await db.prepare(statsSQL).get(...taskParams);
@@ -29,7 +29,7 @@ router.get('/', authenticate, async (req, res) => {
       LEFT JOIN users u ON u.id = t.assignee_id
       LEFT JOIN projects p ON p.id = t.project_id
       WHERE 1=1 ${taskFilter}
-      ORDER BY t.due_date ASC, t.created_at DESC
+      ORDER BY t.created_at DESC
       LIMIT 10
     `;
     const recentTasks = await db.prepare(recentSQL).all(...taskParams);
