@@ -15,14 +15,17 @@ export default function AI() {
   const [messages, setMessages] = useState([
     { role:'assistant', content:`Hello ${user?.name?.split(' ')[0] || 'there'}! 👋 I'm your TaskFlow AI assistant. I can help you with project planning, task management, writing, brainstorming, and much more. What can I help you with today?` }
   ]);
-  const [input,   setInput]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const [file,    setFile]    = useState(null);
-  const [fileData,setFileData]= useState(null);
-  const bottomRef = useRef(null);
-  const fileRef   = useRef(null);
+  const [input,    setInput]    = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [file,     setFile]     = useState(null);
+  const [fileData, setFileData] = useState(null);
+  const messagesEndRef = useRef(null);
+  const fileRef        = useRef(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
+  // Scroll to last message (not bottom of page) after each new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
 
   const handleFile = (e) => {
     const f = e.target.files[0];
@@ -46,7 +49,6 @@ export default function AI() {
     setLoading(true);
 
     try {
-      // Build messages for API
       const apiMessages = [];
       const history = [...messages, userMsg].slice(-10);
       for (const msg of history) {
@@ -63,7 +65,6 @@ export default function AI() {
       }
 
       const systemPrompt = `You are an expert AI assistant integrated into TaskFlow, a team task management platform. You help users with project planning, task management, productivity, writing, brainstorming, and answering any questions. The current user is ${user?.name} with role ${user?.role}. Be helpful, concise, and professional. Use markdown formatting when appropriate.`;
-
       const response = await aiAPI.chat(apiMessages, systemPrompt);
       const reply = response.data?.content || 'Sorry, I could not generate a response.';
       setMessages(m => [...m, { role:'assistant', content:reply }]);
@@ -75,11 +76,12 @@ export default function AI() {
   };
 
   const renderContent = (text) => {
-    // Simple markdown-like rendering
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code style="background:rgba(99,102,241,0.2);padding:1px 6px;border-radius:4px;font-size:0.9em">$1</code>')
+      .replace(/### (.*?)(\n|$)/g, '<h3 style="font-size:15px;font-weight:700;margin:12px 0 6px">$1</h3>')
+      .replace(/#### (.*?)(\n|$)/g, '<h4 style="font-size:13px;font-weight:700;margin:10px 0 4px">$1</h4>')
       .replace(/\n/g, '<br/>');
   };
 
@@ -98,17 +100,15 @@ export default function AI() {
 
       {/* Chat window */}
       <div className="card" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-        {/* Messages */}
+        {/* Messages — scrollable area */}
         <div style={{flex:1,overflowY:'auto',padding:'1.25rem',display:'flex',flexDirection:'column',gap:12}}>
           {messages.map((msg,i)=>(
             <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',flexDirection:msg.role==='user'?'row-reverse':'row'}}>
-              {/* Avatar */}
               <div style={{width:32,height:32,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,
                 background:msg.role==='assistant'?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.08)',
                 border:'1px solid var(--border-hi)',color:'white',fontWeight:600}}>
                 {msg.role==='assistant'?'✦':(user?.name?.[0]||'U')}
               </div>
-              {/* Bubble */}
               <div style={{
                 maxWidth:'75%',padding:'10px 14px',borderRadius:msg.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px',
                 background:msg.role==='user'?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.05)',
@@ -132,7 +132,8 @@ export default function AI() {
               </div>
             </div>
           )}
-          <div ref={bottomRef}/>
+          {/* This ref scrolls into view on new message — stays within chat window */}
+          <div ref={messagesEndRef}/>
         </div>
 
         {/* Suggestions */}

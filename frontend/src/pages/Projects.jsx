@@ -7,22 +7,25 @@ import TaskModal       from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { DEVELOPER_EMAIL } from '../App';
 
+const DEV_EMAILS = ['ry1555530@gmail.com','rajput.kyar@gmail.com'];
+
 export default function Projects() {
   const { user } = useAuth();
-  const isAdmin   = user?.role === 'admin';
-  const isDev     = user?.email === DEVELOPER_EMAIL; // developer can delete anything
+  const isAdmin = user?.role === 'admin';
+  const isDev   = DEV_EMAILS.includes(user?.email);
 
   const [projects, setProjects] = useState([]);
   const [tasks,    setTasks]    = useState([]);
   const [users,    setUsers]    = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState('');
   const [showPM,   setShowPM]   = useState(false);
   const [editProj, setEditProj] = useState(null);
   const [showTM,   setShowTM]   = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [viewTask, setViewTask] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, type, name }
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const load = () => {
     Promise.all([projectsAPI.list(), usersAPI.list()])
@@ -37,18 +40,15 @@ export default function Projects() {
   const selProject = projects.find(p => p.id === selected);
   const projTasks  = tasks.filter(t => t.project_id === selected);
 
-  // Can delete project: developer always, admin only their own
   const canDeleteProject = (p) => isDev || (isAdmin && p.created_by === user.id);
-  // Can delete task: developer always, admin only tasks in their projects
-  const canDeleteTask = (t) => isDev || (isAdmin && t.created_by === user.id);
+  const canDeleteTask    = (t) => isDev || (isAdmin && t.created_by === user.id);
 
   const handleDeleteConfirmed = async () => {
     if (!deleteConfirm) return;
     try {
       if (deleteConfirm.type === 'project') {
         await projectsAPI.delete(deleteConfirm.id);
-        setSelected(null);
-        load();
+        setSelected(null); load();
       } else {
         await tasksAPI.delete(deleteConfirm.id);
         loadTasks(selected);
@@ -56,20 +56,29 @@ export default function Projects() {
     } finally { setDeleteConfirm(null); }
   };
 
+  const filteredProjects = projects.filter(p =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase())
+  );
+
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'60vh'}}><Spinner/></div>;
 
   return (
-    <div>
+    <div style={{overflowY:'auto'}}>
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{marginBottom:4}}>Projects</h1>
           <p style={{fontSize:14,color:'var(--text-2)'}}>{projects.length} projects</p>
         </div>
-        {isAdmin && <button className="btn btn-primary" onClick={()=>{setEditProj(null);setShowPM(true);}}>+ New Project</button>}
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="🔍 Search projects…"
+            style={{fontSize:13,minWidth:200}}/>
+          {isAdmin && <button className="btn btn-primary" onClick={()=>{setEditProj(null);setShowPM(true);}}>+ New Project</button>}
+        </div>
       </div>
 
       <div className="grid-3 au1" style={{marginBottom:'1.5rem'}}>
-        {projects.map(p => {
+        {filteredProjects.map(p => {
           const pct = p.total_tasks ? Math.round(p.done_tasks/p.total_tasks*100) : 0;
           const isSel = selected === p.id;
           return (
@@ -84,8 +93,7 @@ export default function Projects() {
                 <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
                   {isAdmin && <button className="btn btn-sm" onClick={()=>{setEditProj(p);setShowPM(true);}}>✎</button>}
                   {canDeleteProject(p) && (
-                    <button className="btn btn-sm btn-danger"
-                      onClick={()=>setDeleteConfirm({id:p.id,type:'project',name:p.name})}>🗑</button>
+                    <button className="btn btn-sm btn-danger" onClick={()=>setDeleteConfirm({id:p.id,type:'project',name:p.name})}>🗑</button>
                   )}
                 </div>
               </div>
@@ -104,7 +112,7 @@ export default function Projects() {
             </div>
           );
         })}
-        {projects.length===0 && <div style={{gridColumn:'1/-1'}}><Empty message="No projects yet."/></div>}
+        {filteredProjects.length===0 && <div style={{gridColumn:'1/-1'}}><Empty message={search?"No projects match your search.":"No projects yet."}/></div>}
       </div>
 
       {/* Task panel */}
@@ -140,8 +148,7 @@ export default function Projects() {
                   <span style={{fontSize:11,color:'var(--text-3)',padding:'3px 8px',borderRadius:6,border:'1px solid var(--border)'}}>View →</span>
                   {canEdit && <button className="btn btn-sm" onClick={e=>{e.stopPropagation();setEditTask(t);setShowTM(true);}}>✎</button>}
                   {canDeleteTask(t) && (
-                    <button className="btn btn-sm btn-danger"
-                      onClick={e=>{e.stopPropagation();setDeleteConfirm({id:t.id,type:'task',name:t.title});}}>✕</button>
+                    <button className="btn btn-sm btn-danger" onClick={e=>{e.stopPropagation();setDeleteConfirm({id:t.id,type:'task',name:t.title});}}>✕</button>
                   )}
                 </div>
                 <div className="task-divider"/>
@@ -164,8 +171,8 @@ export default function Projects() {
             </div>
             <div style={{fontSize:13,color:'var(--text-3)',marginBottom:'1.5rem',lineHeight:1.6}}>
               {deleteConfirm.type==='project'
-                ? 'This will permanently delete the project and all its tasks. This cannot be undone.'
-                : 'This will permanently delete this task. This cannot be undone.'}
+                ? 'This will permanently delete the project and all its tasks.'
+                : 'This will permanently delete this task.'}
             </div>
             <div style={{display:'flex',gap:10,justifyContent:'center'}}>
               <button className="btn" onClick={()=>setDeleteConfirm(null)} style={{minWidth:100}}>No, Cancel</button>

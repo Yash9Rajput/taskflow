@@ -36,10 +36,11 @@ function HelpModal({ onClose }) {
 export default function Login() {
   const { login } = useAuth();
   const navigate  = useNavigate();
-  const [form, setForm]     = useState({ email:'', password:'' });
-  const [error, setError]   = useState('');
-  const [loading, setLoading] = useState(false);
+  const [form, setForm]         = useState({ email:'', password:'' });
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showPwd, setShowPwd]   = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const handleSubmit = async(e) => {
@@ -80,11 +81,30 @@ export default function Login() {
           <form onSubmit={handleSubmit} autoComplete="on">
             <div className="field">
               <label>Email address</label>
-              <input type="email" name="email" autoComplete="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="you@example.com" required/>
+              <input type="email" name="email" autoComplete="email"
+                value={form.email} onChange={e=>set('email',e.target.value)}
+                placeholder="you@example.com" required/>
             </div>
             <div className="field">
               <label>Password</label>
-              <input type="password" name="password" autoComplete="current-password" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Your password" required/>
+              <div style={{position:'relative'}}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
+                  value={form.password}
+                  onChange={e=>set('password',e.target.value)}
+                  placeholder="Your password"
+                  required
+                  style={{width:'100%',paddingRight:42}}
+                />
+                <button type="button"
+                  onClick={()=>setShowPwd(v=>!v)}
+                  style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',fontSize:16,padding:4,lineHeight:1}}
+                  title={showPwd?'Hide password':'Show password'}>
+                  {showPwd ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
             {error && <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'var(--r-sm)',padding:'10px 14px',fontSize:13,color:'#fca5a5',marginBottom:'1rem'}}>{error}</div>}
             <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'11px',fontSize:14,borderRadius:'var(--r-sm)'}} disabled={loading}>

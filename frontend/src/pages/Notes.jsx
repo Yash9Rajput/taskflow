@@ -2,11 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'tf-notes-v1';
+const DEV_EMAILS = ['ry1555530@gmail.com','rajput.kyar@gmail.com'];
 const loadNotes = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { return []; } };
 const saveNotes = (n) => localStorage.setItem(STORAGE_KEY, JSON.stringify(n));
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 
-function NoteDetail({ note, onBack, onEdit, onDelete }) {
+function ConfirmDeleteModal({ note, onConfirm, onCancel }) {
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+      <div style={{background:'var(--bg-card)',border:'1px solid var(--border-hi)',borderRadius:20,padding:'2rem',width:380,textAlign:'center',animation:'scaleIn 0.2s'}}>
+        <div style={{fontSize:44,marginBottom:'1rem'}}>🗑️</div>
+        <div style={{fontFamily:'var(--font-d)',fontSize:18,fontWeight:700,marginBottom:8}}>Delete this note?</div>
+        <div style={{fontSize:14,color:'var(--text-2)',marginBottom:4}}>
+          <strong style={{color:'var(--text)'}}>&ldquo;{note.title}&rdquo;</strong>
+        </div>
+        <div style={{fontSize:13,color:'var(--text-3)',marginBottom:'1.5rem',lineHeight:1.6}}>
+          This will permanently delete this note. This cannot be undone.
+        </div>
+        <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+          <button className="btn" onClick={onCancel} style={{minWidth:100}}>No, Cancel</button>
+          <button className="btn btn-danger" onClick={onConfirm} style={{minWidth:100}}>Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoteDetail({ note, onBack, onEdit, onDelete, canDelete }) {
   const share = () => {
     if (navigator.share) {
       navigator.share({ title: note.title, text: note.body }).catch(()=>{});
@@ -16,15 +38,15 @@ function NoteDetail({ note, onBack, onEdit, onDelete }) {
     }
   };
   return (
-    <div style={{animation:'fadeUp 0.35s ease'}}>
-      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:'1.5rem'}}>
+    <div style={{animation:'fadeUp 0.35s ease',overflowY:'auto',maxHeight:'calc(100vh - 140px)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:'1.5rem',flexWrap:'wrap'}}>
         <button className="btn" onClick={onBack} style={{display:'flex',alignItems:'center',gap:6,background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.2)',color:'#a5b4fc'}}>
           ← Back to Notes
         </button>
         <div style={{flex:1}}/>
         <button className="btn btn-sm" onClick={share}>↗ Share</button>
         <button className="btn btn-sm" onClick={onEdit}>✎ Edit</button>
-        <button className="btn btn-sm btn-danger" onClick={onDelete}>🗑 Delete</button>
+        {canDelete && <button className="btn btn-sm btn-danger" onClick={onDelete}>🗑 Delete</button>}
       </div>
       <div className="card" style={{padding:'2rem',maxWidth:720,margin:'0 auto'}}>
         <div style={{display:'flex',gap:8,marginBottom:'1rem',flexWrap:'wrap'}}>
@@ -34,10 +56,10 @@ function NoteDetail({ note, onBack, onEdit, onDelete }) {
         <div style={{display:'flex',gap:16,fontSize:12,color:'var(--text-3)',marginBottom:'1.5rem',flexWrap:'wrap'}}>
           <span>✍️ {note.author}</span>
           <span>📅 {note.date}</span>
-          {note.savedAt && <span>💾 Saved</span>}
+          {note.savedAt && <span>⭐ Saved</span>}
         </div>
         {note.imageUrl && <img src={note.imageUrl} alt="attachment" style={{width:'100%',borderRadius:'var(--r-md)',marginBottom:'1.5rem',maxHeight:300,objectFit:'cover'}}/>}
-        <div style={{fontSize:15,lineHeight:1.9,color:'var(--text-2)',whiteSpace:'pre-wrap',overflowY:'auto',maxHeight:500}}>{note.body}</div>
+        <div style={{fontSize:15,lineHeight:1.9,color:'var(--text-2)',whiteSpace:'pre-wrap'}}>{note.body}</div>
       </div>
     </div>
   );
@@ -67,7 +89,7 @@ function NoteForm({ initial, onSave, onCancel }) {
   };
 
   return (
-    <div style={{animation:'scaleIn 0.3s ease'}}>
+    <div style={{animation:'scaleIn 0.3s ease',overflowY:'auto',maxHeight:'calc(100vh - 140px)'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:'1.5rem'}}>
         <button className="btn" onClick={onCancel} style={{background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.2)',color:'#a5b4fc'}}>← Back</button>
         <h2 style={{fontFamily:'var(--font-d)',fontSize:20,fontWeight:600}}>{initial?'Edit Note':'New Note'}</h2>
@@ -96,10 +118,13 @@ function NoteForm({ initial, onSave, onCancel }) {
 
 export default function Notes() {
   const { user } = useAuth();
+  const isDev = DEV_EMAILS.includes(user?.email);
+
   const [notes,   setNotes]   = useState(() => loadNotes());
-  const [view,    setView]    = useState('feed'); // 'feed' | 'saved' | 'detail' | 'new' | 'edit'
+  const [view,    setView]    = useState('feed');
   const [current, setCurrent] = useState(null);
   const [search,  setSearch]  = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const persist = (n) => { setNotes(n); saveNotes(n); };
 
@@ -107,32 +132,41 @@ export default function Notes() {
     if (current) {
       persist(notes.map(n => n.id===current.id ? {...n,...form} : n));
     } else {
-      persist([{id:genId(),...form,savedAt:false}, ...notes]);
+      persist([{id:genId(),...form,savedAt:false,ownerEmail:user?.email}, ...notes]);
     }
     setCurrent(null); setView('feed');
   };
 
-  const handleDelete = (id) => {
-    persist(notes.filter(n=>n.id!==id));
+  const handleDeleteConfirmed = () => {
+    if (!deleteTarget) return;
+    persist(notes.filter(n=>n.id!==deleteTarget.id));
+    setDeleteTarget(null);
     setView('feed'); setCurrent(null);
   };
 
-  const toggleSave = (id) => persist(notes.map(n=>n.id===id?{...n,savedAt:!n.savedAt}:n));
+  const canDeleteNote = (note) => isDev || note.ownerEmail === user?.email || !note.ownerEmail;
 
-  const filtered = notes.filter(n => {
-    const q = search.toLowerCase();
-    const match = !q || n.title.toLowerCase().includes(q) || n.body?.toLowerCase().includes(q) || n.tags?.some(t=>t.includes(q));
-    const inFeed  = view==='feed'  ? match : false;
-    const inSaved = view==='saved' ? (match && n.savedAt) : false;
-    return inFeed || inSaved || view==='feed' && match;
-  }).filter(n => view==='saved' ? n.savedAt : true);
+  const toggleSave = (id) => persist(notes.map(n=>n.id===id?{...n,savedAt:!n.savedAt}:n));
 
   if (view==='new') return <NoteForm onSave={handleSave} onCancel={()=>setView('feed')}/>;
   if (view==='edit' && current) return <NoteForm initial={{...current,tags:current.tags?.join(', ')}} onSave={handleSave} onCancel={()=>setView('detail')}/>;
   if (view==='detail' && current) return (
-    <NoteDetail note={current} onBack={()=>{setView('feed');setCurrent(null);}}
-      onEdit={()=>setView('edit')}
-      onDelete={()=>handleDelete(current.id)}/>
+    <>
+      <NoteDetail
+        note={current}
+        canDelete={canDeleteNote(current)}
+        onBack={()=>{setView('feed');setCurrent(null);}}
+        onEdit={()=>setView('edit')}
+        onDelete={()=>setDeleteTarget(current)}
+      />
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          note={deleteTarget}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={()=>setDeleteTarget(null)}
+        />
+      )}
+    </>
   );
 
   const displayNotes = notes.filter(n=>{
@@ -142,7 +176,14 @@ export default function Notes() {
   });
 
   return (
-    <div>
+    <div style={{overflowY:'auto'}}>
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          note={deleteTarget}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={()=>setDeleteTarget(null)}
+        />
+      )}
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{marginBottom:4}}>Notes</h1>
@@ -151,9 +192,8 @@ export default function Notes() {
         <button className="btn btn-primary" onClick={()=>setView('new')}>+ New Note</button>
       </div>
 
-      {/* Search + tabs */}
       <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:'1.5rem',flexWrap:'wrap'}} className="au1">
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search notes by title, content, tag…" style={{flex:1,minWidth:200,maxWidth:400,fontSize:13}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search notes…" style={{flex:1,minWidth:200,maxWidth:400,fontSize:13}}/>
         <div className="tabs">
           <button className={`tab-btn${view==='feed'?' active':''}`} onClick={()=>setView('feed')}>📋 All Notes</button>
           <button className={`tab-btn${view==='saved'?' active':''}`} onClick={()=>setView('saved')}>⭐ Saved</button>
@@ -163,7 +203,7 @@ export default function Notes() {
       {displayNotes.length===0 ? (
         <div style={{textAlign:'center',padding:'4rem',color:'var(--text-3)'}}>
           <div style={{fontSize:48,marginBottom:'1rem'}}>📝</div>
-          <div>{view==='saved'?'No saved notes yet. Star a note to save it.':'No notes yet. Create your first one!'}</div>
+          <div>{view==='saved'?'No saved notes yet.':'No notes yet. Create your first one!'}</div>
         </div>
       ) : (
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}} className="au2">
@@ -181,8 +221,16 @@ export default function Notes() {
               <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:'0.75rem'}}>
                 {n.tags?.map(t=><span key={t} style={{padding:'1px 8px',borderRadius:999,background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.15)',fontSize:10,color:'#a5b4fc'}}>#{t}</span>)}
               </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-3)'}}>
-                <span>✍️ {n.author}</span><span>📅 {n.date}</span>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11,color:'var(--text-3)'}}>
+                <span>✍️ {n.author}</span>
+                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                  <span>📅 {n.date}</span>
+                  {canDeleteNote(n) && (
+                    <button onClick={e=>{e.stopPropagation();setDeleteTarget(n);}}
+                      style={{background:'none',border:'none',cursor:'pointer',color:'#f87171',fontSize:14,padding:2}}
+                      title="Delete note">🗑</button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
