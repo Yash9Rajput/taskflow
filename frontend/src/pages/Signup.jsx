@@ -16,9 +16,10 @@ const LogoMark = () => (
 export default function Signup() {
   const { signup } = useAuth();
   const navigate   = useNavigate();
-  const [form, setForm]   = useState({ name:'', email:'', password:'', role:'member' });
-  const [error, setError] = useState('');
+  const [form, setForm]       = useState({ name:'', email:'', password:'', role:'member' });
+  const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const handleSubmit = async(e) => {
@@ -38,10 +39,35 @@ export default function Signup() {
         <div style={{textAlign:'center',marginBottom:'1.75rem',color:'var(--text-2)',fontSize:14}}>Join your team's workspace</div>
         <div className="auth-box">
           <h2 style={{fontFamily:'var(--font-d)',fontSize:20,fontWeight:600,marginBottom:'1.5rem'}}>Create account</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="field"><label>Full name</label><input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Your name" required/></div>
-            <div className="field"><label>Email</label><input type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="you@example.com" required/></div>
-            <div className="field"><label>Password</label><input type="password" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min 6 characters" required/></div>
+          <form onSubmit={handleSubmit} autoComplete="on">
+            <div className="field">
+              <label>Full name</label>
+              <input name="name" autoComplete="name" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Your name" required/>
+            </div>
+            <div className="field">
+              <label>Email</label>
+              <input type="email" name="email" autoComplete="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="you@example.com" required/>
+            </div>
+            <div className="field">
+              <label>Password</label>
+              <div style={{position:'relative'}}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  name="new-password"
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={e=>set('password',e.target.value)}
+                  placeholder="Min 6 characters"
+                  required
+                  style={{width:'100%',paddingRight:42}}
+                />
+                <button type="button"
+                  onClick={()=>setShowPwd(v=>!v)}
+                  style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',fontSize:16,padding:4,lineHeight:1}}>
+                  {showPwd ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
             <div className="field">
               <label>Role</label>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>

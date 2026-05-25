@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { tasksAPI } from '../api';
-import { Modal } from './UI';
 
 export default function TaskModal({ task, projects, users, defaultProjectId, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -26,46 +25,59 @@ export default function TaskModal({ task, projects, users, defaultProjectId, onC
   };
 
   const statusOpts = [{v:'todo',l:'To Do'},{v:'in-progress',l:'In Progress'},{v:'done',l:'Done'}];
-  const prioOpts   = [{v:'low',l:'Low'},{v:'medium',l:'Medium'},{v:'high',l:'High'}];
+  const prioOpts   = [{v:'low',l:'🟢 Low'},{v:'medium',l:'🟡 Medium'},{v:'high',l:'🔴 High'}];
 
   return (
-    <Modal title={task ? 'Edit Task' : 'New Task'} onClose={onClose}>
-      <div className="field"><label>Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Task title" /></div>
-      <div className="field"><label>Description</label><textarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="What needs to be done?" /></div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-        <div className="field">
-          <label>Project</label>
-          <select value={form.project_id} onChange={e=>set('project_id',e.target.value)}>
-            {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal-box" style={{maxWidth:520,maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem',flexShrink:0}}>
+          <div style={{fontFamily:'var(--font-d)',fontSize:17,fontWeight:600}}>{task ? 'Edit Task' : 'New Task'}</div>
+          <button onClick={onClose} className="btn btn-ghost btn-sm">✕</button>
         </div>
-        <div className="field">
-          <label>Assignee</label>
-          <select value={form.assignee_id} onChange={e=>set('assignee_id',e.target.value)}>
-            <option value="">Unassigned</option>
-            {users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
+
+        {/* Scrollable body */}
+        <div style={{overflowY:'auto',flex:1,paddingRight:2}}>
+          <div className="field"><label>Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Task title"/></div>
+          <div className="field"><label>Description</label><textarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="What needs to be done?" style={{minHeight:80}}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div className="field">
+              <label>Project</label>
+              <select value={form.project_id} onChange={e=>set('project_id',e.target.value)}>
+                {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Assignee</label>
+              <select value={form.assignee_id} onChange={e=>set('assignee_id',e.target.value)}>
+                <option value="">Unassigned</option>
+                {users.map(u=><option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div className="field">
+              <label>Status</label>
+              <select value={form.status} onChange={e=>set('status',e.target.value)}>
+                {statusOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>Priority</label>
+              <select value={form.priority} onChange={e=>set('priority',e.target.value)}>
+                {prioOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="field"><label>Due Date</label><input type="date" value={form.due_date} onChange={e=>set('due_date',e.target.value)}/></div>
+        </div>
+
+        {/* Footer */}
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',paddingTop:'1rem',borderTop:'1px solid var(--border)',flexShrink:0}}>
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading?'Saving…':'Save Task'}</button>
         </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-        <div className="field">
-          <label>Status</label>
-          <select value={form.status} onChange={e=>set('status',e.target.value)}>
-            {statusOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label>Priority</label>
-          <select value={form.priority} onChange={e=>set('priority',e.target.value)}>
-            {prioOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="field"><label>Due Date</label><input type="date" value={form.due_date} onChange={e=>set('due_date',e.target.value)} /></div>
-      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:'0.5rem'}}>
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading?'Saving…':'Save Task'}</button>
-      </div>
-    </Modal>
+    </div>
   );
 }

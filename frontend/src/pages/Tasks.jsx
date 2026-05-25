@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge, Spinner, Empty, taskStatusDisplay } from '../components/UI';
 import TaskModal       from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
-import { DEVELOPER_EMAIL } from '../App';
+
+const DEV_EMAILS = ['ry1555530@gmail.com','rajput.kyar@gmail.com'];
 
 const TABS = [
   { key:'all',         label:'All',         color:'#818cf8' },
@@ -17,7 +18,7 @@ const TABS = [
 export default function Tasks() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const isDev   = user?.email === DEVELOPER_EMAIL;
+  const isDev   = DEV_EMAILS.includes(user?.email);
 
   const [tasks,    setTasks]    = useState([]);
   const [projects, setProjects] = useState([]);
@@ -54,7 +55,6 @@ export default function Tasks() {
     overdue: tasks.filter(isOverdue).length,
   };
 
-  // Permissions
   const canDeleteTask = (t) => isDev || (isAdmin && t.created_by === user.id);
 
   const handleDeleteConfirmed = async () => {
@@ -67,7 +67,7 @@ export default function Tasks() {
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'60vh'}}><Spinner/></div>;
 
   return (
-    <div>
+    <div style={{overflowY:'auto'}}>
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{marginBottom:4}}>Tasks</h1>
@@ -94,9 +94,8 @@ export default function Tasks() {
           style={{flex:1,minWidth:200,maxWidth:300,fontSize:13}}/>
       </div>
 
-      <div className="card au2" style={{padding:'0.5rem 1.5rem'}}>
-        {/* Header */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 130px 80px 110px 100px',gap:12,padding:'10px 0',borderBottom:'1px solid var(--border)',marginBottom:4}}>
+      <div className="card au2" style={{padding:'0.5rem 1.5rem',overflowX:'auto'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 130px 80px 110px 100px',gap:12,padding:'10px 0',borderBottom:'1px solid var(--border)',marginBottom:4,minWidth:580}}>
           {['Task','Assignee','Priority','Status','Actions'].map(h=>(
             <div key={h} style={{fontSize:11,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.08em'}}>{h}</div>
           ))}
@@ -110,7 +109,7 @@ export default function Tasks() {
             const od       = isOverdue(t);
             return (
               <div key={t.id}
-                style={{display:'grid',gridTemplateColumns:'1fr 130px 80px 110px 100px',gap:12,padding:'11px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',alignItems:'center',cursor:'pointer',borderRadius:'var(--r-sm)',transition:'background 0.15s'}}
+                style={{display:'grid',gridTemplateColumns:'1fr 130px 80px 110px 100px',gap:12,padding:'11px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',alignItems:'center',cursor:'pointer',borderRadius:'var(--r-sm)',transition:'background 0.15s',minWidth:580}}
                 onClick={()=>setViewTask(t)}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -125,11 +124,10 @@ export default function Tasks() {
                 <div onClick={e=>e.stopPropagation()}><Badge priority={t.priority}/></div>
                 <div onClick={e=>e.stopPropagation()}><Badge status={taskStatusDisplay(t)}/></div>
                 <div style={{display:'flex',gap:4}} onClick={e=>e.stopPropagation()}>
-                  <button className="btn btn-sm" onClick={()=>setViewTask(t)} title="View details">👁</button>
+                  <button className="btn btn-sm" onClick={()=>setViewTask(t)} title="View">👁</button>
                   {canEdit && <button className="btn btn-sm" onClick={()=>{setEditTask(t);setShowTM(true);}}>✎</button>}
                   {canDeleteTask(t) && (
-                    <button className="btn btn-sm btn-danger"
-                      onClick={()=>setDeleteConfirm({id:t.id,name:t.title})}>✕</button>
+                    <button className="btn btn-sm btn-danger" onClick={()=>setDeleteConfirm({id:t.id,name:t.title})}>✕</button>
                   )}
                 </div>
               </div>
@@ -148,7 +146,7 @@ export default function Tasks() {
               <strong style={{color:'var(--text)'}}>&ldquo;{deleteConfirm.name}&rdquo;</strong>
             </div>
             <div style={{fontSize:13,color:'var(--text-3)',marginBottom:'1.5rem',lineHeight:1.6}}>
-              This will permanently delete this task. This action cannot be undone.
+              This will permanently delete this task. This cannot be undone.
             </div>
             <div style={{display:'flex',gap:10,justifyContent:'center'}}>
               <button className="btn" onClick={()=>setDeleteConfirm(null)} style={{minWidth:100}}>No, Cancel</button>
