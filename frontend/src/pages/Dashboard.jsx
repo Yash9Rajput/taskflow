@@ -1,22 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { dashboardAPI } from '../api';
+import { dashboardAPI, tasksAPI, projectsAPI } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { StatCard, Avatar, Badge, ProgressBar, Spinner, Empty, taskStatusDisplay,
          DonutChart, BarChart, StackedBar, Sparkline, Ticker } from '../components/UI';
+import TaskDetailModal from '../components/TaskDetailModal';
 
 const MOCK_SPARK = [2,5,3,8,6,9,7,4,8,11,6,10,9,12,8];
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewTask, setViewTask] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
 
   useEffect(() => {
-    dashboardAPI.stats().then(r=>setData(r.data)).finally(()=>setLoading(false));
+    Promise.all([
+      dashboardAPI.stats(),
+      import('../api').then(m => m.usersAPI.list()),
+      projectsAPI.list(),
+    ]).then(([d, u, p]) => {
+      setData(d.data);
+      setAllUsers(u.data);
+      setProjects(p.data);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'60vh'}}><Spinner/></div>;
   if (!data)   return <Empty message="Could not load dashboard."/>;
 
-  const { stats, recent_tasks=[], projects=[] } = data;
+  const { stats, recent_tasks=[], projects: projStats=[] } = data;
   const total = stats.total_tasks||0;
   const todo  = Math.max(0, total-(stats.done||0)-(stats.in_progress||0)-(stats.overdue||0));
 
@@ -33,7 +47,7 @@ export default function Dashboard() {
     {label:'🟢 Low',    value:recent_tasks.filter(t=>t.priority==='low').length,    color:'linear-gradient(90deg,#10b981,#34d399)'},
   ];
 
-  const projectBars = projects.slice(0,6).map(p=>({
+  const projectBars = projStats.slice(0,6).map(p=>({
     label: p.name,
     value: p.total_tasks ? Math.round(p.done_tasks/p.total_tasks*100) : 0,
     color: 'linear-gradient(90deg,#6366f1,#8b5cf6)',
@@ -43,7 +57,7 @@ export default function Dashboard() {
     {icon:'✓', label:`${stats.done||0} Tasks Done`,    color:'#34d399'},
     {icon:'⚡', label:`${stats.in_progress||0} Active`, color:'#818cf8'},
     {icon:'⚠', label:`${stats.overdue||0} Overdue`,    color:'#f87171'},
-    {icon:'◫', label:`${projects.length} Projects`,     color:'#67e8f9'},
+    {icon:'◫', label:`${projStats.length} Projects`,    color:'#67e8f9'},
     {icon:'%', label:`${total?Math.round((stats.done||0)/total*100):0}% Complete`, color:'#fcd34d'},
   ];
 
@@ -51,18 +65,13 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Header */}
       <div style={{marginBottom:'1.5rem'}}>
         <h1 className="page-title au">Dashboard</h1>
         <p className="au1" style={{color:'var(--text-2)',fontSize:14}}>Real-time overview of your team's progress</p>
       </div>
 
-      {/* Live ticker */}
-      <div className="au1">
-        <Ticker items={tickerItems}/>
-      </div>
+      <div className="au1"><Ticker items={tickerItems}/></div>
 
-      {/* Stat cards */}
       <div className="grid-4 au2" style={{marginBottom:'1.5rem'}}>
         <StatCard label="Total Tasks"  value={total}              icon="📋" lineClass="stat-line-purple" sub={`${todo} to do`}/>
         <StatCard label="In Progress"  value={stats.in_progress}  icon="⚡" color="#818cf8" lineClass="stat-line-purple" sub="active now"/>
@@ -70,10 +79,8 @@ export default function Dashboard() {
         <StatCard label="Overdue"      value={stats.overdue}      icon="⚠"  color="#f87171" lineClass="stat-line-red"    sub="need attention"/>
       </div>
 
-      {/* Row 2: Donut + Stacked + Completion */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1.4fr 1fr',gap:16,marginBottom:'1.5rem'}} className="au3">
-
-        {/* Donut breakdown */}
+        {/* Donut */}
         <div className="card" style={{padding:'1.5rem'}}>
           <div className="section-head" style={{marginBottom:'1rem'}}>
             <div className="section-title">Task Status</div>
@@ -110,9 +117,9 @@ export default function Dashboard() {
         <div className="card" style={{padding:'1.5rem'}}>
           <div className="section-head">
             <div className="section-title">Project Completion %</div>
-            <span style={{fontSize:11,color:'var(--text-3)'}}>{projects.length} projects</span>
+            <span style={{fontSize:11,color:'var(--text-3)'}}>{projStats.length} projects</span>
           </div>
-          {projects.length===0 ? <Empty message="No projects."/> : (
+          {projStats.length===0 ? <Empty message="No projects."/> : (
             <>
               <BarChart bars={projectBars} showPercent/>
               <div style={{marginTop:'1.25rem',paddingTop:'1rem',borderTop:'1px solid var(--border)'}}>
@@ -123,19 +130,12 @@ export default function Dashboard() {
                   {label:'Overdue',    value:stats.overdue||0,     color:'#ef4444'},
                   {label:'To Do',      value:todo,                  color:'rgba(255,255,255,0.08)'},
                 ]}/>
-                <div style={{display:'flex',gap:12,marginTop:8,flexWrap:'wrap'}}>
-                  {[['#10b981','Done'],['#6366f1','Active'],['#ef4444','Overdue']].map(([c,l])=>(
-                    <div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--text-2)'}}>
-                      <div style={{width:7,height:7,borderRadius:'50%',background:c}}/>{l}
-                    </div>
-                  ))}
-                </div>
               </div>
             </>
           )}
         </div>
 
-        {/* Completion rate + sparkline */}
+        {/* Completion rate */}
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           <div className="card" style={{padding:'1.5rem',flex:1}}>
             <div className="section-title" style={{marginBottom:'1.25rem'}}>Completion Rate</div>
@@ -171,7 +171,6 @@ export default function Dashboard() {
 
       {/* Row 3: Upcoming tasks + priority */}
       <div className="grid-2 au4">
-        {/* Upcoming tasks */}
         <div className="card" style={{padding:'1.5rem'}}>
           <div className="section-head">
             <div className="section-title">Upcoming Tasks</div>
@@ -179,7 +178,7 @@ export default function Dashboard() {
           </div>
           {recent_tasks.length===0 ? <Empty message="No tasks yet."/> : recent_tasks.slice(0,7).map((t,i)=>(
             <React.Fragment key={t.id}>
-              <div className="task-row">
+              <div className="task-row" style={{cursor:'pointer'}} onClick={()=>setViewTask(t)}>
                 <Avatar user={{id:t.assignee_id, name:t.assignee_name||'?'}} size={32}/>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</div>
@@ -193,7 +192,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Priority split + mini metrics */}
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           <div className="card" style={{padding:'1.5rem',flex:1}}>
             <div className="section-head">
@@ -201,7 +199,6 @@ export default function Dashboard() {
             </div>
             <BarChart bars={priorityBars}/>
             <div style={{marginTop:'1rem',paddingTop:'1rem',borderTop:'1px solid var(--border)'}}>
-              <div style={{fontSize:11,color:'var(--text-3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>Distribution</div>
               <StackedBar height={10} segments={[
                 {label:'High',   value:priorityBars[0].value, color:'#ef4444'},
                 {label:'Medium', value:priorityBars[1].value, color:'#f59e0b'},
@@ -213,10 +210,10 @@ export default function Dashboard() {
             <div className="section-title" style={{marginBottom:'1rem'}}>Quick Stats</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
               {[
-                {label:'Projects',    val:projects.length,                               color:'#818cf8',icon:'◫'},
-                {label:'Overdue',     val:stats.overdue||0,                              color:'#f87171',icon:'⚠'},
-                {label:'Done today',  val:stats.done||0,                                 color:'#34d399',icon:'✓'},
-                {label:'Assignees',   val:new Set(recent_tasks.map(t=>t.assignee_id)).size, color:'#67e8f9',icon:'⊛'},
+                {label:'Projects',  val:projStats.length,                                  color:'#818cf8',icon:'◫'},
+                {label:'Overdue',   val:stats.overdue||0,                                  color:'#f87171',icon:'⚠'},
+                {label:'Done',      val:stats.done||0,                                     color:'#34d399',icon:'✓'},
+                {label:'Assignees', val:new Set(recent_tasks.map(t=>t.assignee_id)).size,  color:'#67e8f9',icon:'⊛'},
               ].map(s=>(
                 <div key={s.label} style={{padding:'12px',background:'rgba(255,255,255,0.03)',borderRadius:'var(--r-md)',border:'1px solid var(--border)',textAlign:'center'}}>
                   <div style={{fontSize:22,fontWeight:700,fontFamily:'var(--font-d)',color:s.color}}>{s.val}</div>
@@ -227,6 +224,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {viewTask && (
+        <TaskDetailModal
+          task={viewTask}
+          users={allUsers}
+          projects={projects}
+          onClose={()=>setViewTask(null)}
+        />
+      )}
     </div>
   );
 }
