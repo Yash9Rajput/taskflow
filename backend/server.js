@@ -14,6 +14,32 @@ app.use(express.json());
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// ─── TEMPORARY: Fix admin roles + reset password ───────────────────────────
+// Visit: https://taskflow-xhwe.onrender.com/fix-admin
+// REMOVE THIS BLOCK after you successfully log in
+app.get('/fix-admin', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { getDb } = require('./db/database');
+    const db = getDb();
+
+    const newPassword = bcrypt.hashSync('Admin@1234', 10);
+
+    // Set both accounts to admin + reset password
+    await db.prepare("UPDATE users SET role='admin', password=? WHERE email='ry1555530@gmail.com'").run(newPassword);
+    await db.prepare("UPDATE users SET role='admin', password=? WHERE email='rajput.kyar@gmail.com'").run(newPassword);
+
+    const users = await db.prepare("SELECT id, name, email, role FROM users").all();
+    res.json({
+      message: 'Done! Both accounts are now admin. New password is: Admin@1234',
+      users,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ─── END TEMPORARY ──────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 5000;
 
 // Init DB first, then register routes and start listening
@@ -37,5 +63,3 @@ initDb().then(() => {
   console.error('Failed to initialize database:', err);
   process.exit(1);
 });
-
-// updated Sat, May 16, 2026  7:14:17 PM
