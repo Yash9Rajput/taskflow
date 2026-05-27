@@ -17,7 +17,7 @@ const TABS = [
 const PRIORITY_OPTIONS = ['low','medium','high','urgent'];
 const STATUS_OPTIONS   = ['todo','in-progress','done'];
 
-/* ─── Inline Task Form (like NoteForm in Notes.jsx) ─── */
+/* ─── Inline Task Form ─── */
 function TaskForm({ initial, projects, users, onSave, onCancel }) {
   const [form, setForm] = useState({
     title:       initial?.title       || '',
@@ -37,9 +37,10 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
     if (!form.title.trim()) { setError('Task title is required.'); return; }
     setSaving(true); setError('');
     try {
+      // Send null instead of empty string — empty strings break many backends
       const payload = {
-        title:       form.title,
-        description: form.description,
+        title:       form.title.trim(),
+        description: form.description.trim() || null,
         project_id:  form.project_id  || null,
         assignee_id: form.assignee_id || null,
         status:      form.status,
@@ -53,19 +54,28 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
       }
       onSave();
     } catch (e) {
-      setError(e?.response?.data?.message || 'Failed to save task. Please try again.');
+      console.error('Task save error:', e);
+      setError(e?.response?.data?.message || e?.message || 'Failed to save task. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const labelStyle = { fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 };
-  const selectStyle = { width: '100%', padding: '10px 12px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--bg-input, rgba(255,255,255,0.05))', color: 'var(--text)', fontSize: 13 };
-
-  const PRIORITY_DOTS = { low:'#34d399', medium:'#fbbf24', high:'#f97316', urgent:'#f87171' };
+  const labelStyle = {
+    fontSize: 11, fontWeight: 600, color: 'var(--text-3)',
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    display: 'block', marginBottom: 6,
+  };
+  const selectStyle = {
+    width: '100%', padding: '10px 12px', borderRadius: 'var(--r-sm)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-input, rgba(255,255,255,0.05))',
+    color: 'var(--text)', fontSize: 13,
+  };
 
   return (
-    <div style={{ animation: 'scaleIn 0.3s ease', overflowY: 'auto', maxHeight: 'calc(100vh - 140px)' }}>
+    <div style={{ overflowY: 'auto' }}>
+      {/* Header — same style as Notes "New Note" header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
         <button className="btn" onClick={onCancel}
           style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
@@ -76,9 +86,10 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
         </h2>
       </div>
 
-      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
+      {/* Card — same full-width card as Notes form, no maxWidth constraint */}
+      <div className="card" style={{ padding: '2rem' }}>
         {error && (
-          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1rem', color: '#f87171', fontSize: 13 }}>
+          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
             ⚠ {error}
           </div>
         )}
@@ -100,7 +111,7 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
             value={form.description}
             onChange={e => set('description', e.target.value)}
             placeholder="What needs to be done?"
-            style={{ minHeight: 120, lineHeight: 1.8, fontSize: 14 }}
+            style={{ minHeight: 140, lineHeight: 1.8, fontSize: 14 }}
           />
         </div>
 
@@ -124,7 +135,11 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
           <div>
             <label style={labelStyle}>Status</label>
             <select value={form.status} onChange={e => set('status', e.target.value)} style={selectStyle}>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s === 'in-progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+              {STATUS_OPTIONS.map(s => (
+                <option key={s} value={s}>
+                  {s === 'in-progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -132,9 +147,7 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
             <label style={labelStyle}>Priority</label>
             <select value={form.priority} onChange={e => set('priority', e.target.value)} style={selectStyle}>
               {PRIORITY_OPTIONS.map(p => (
-                <option key={p} value={p}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </option>
+                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
               ))}
             </select>
           </div>
@@ -150,7 +163,7 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button className="btn" onClick={onCancel} disabled={saving}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? '⏳ Saving...' : '💾 Save Task'}
@@ -172,8 +185,7 @@ export default function Tasks() {
   const [users,    setUsers]    = useState([]);
   const [tab,      setTab]      = useState('all');
   const [loading,  setLoading]  = useState(true);
-  // view: 'list' | 'new' | 'edit'
-  const [view,     setView]     = useState('list');
+  const [view,     setView]     = useState('list'); // 'list' | 'new' | 'edit'
   const [editTask, setEditTask] = useState(null);
   const [viewTask, setViewTask] = useState(null);
   const [search,   setSearch]   = useState('');
@@ -183,6 +195,7 @@ export default function Tasks() {
     setLoading(true);
     Promise.all([tasksAPI.list(), projectsAPI.list(), usersAPI.list()])
       .then(([t, p, u]) => { setTasks(t.data); setProjects(p.data); setUsers(u.data); })
+      .catch(err => console.error('Load error:', err))
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -191,44 +204,45 @@ export default function Tasks() {
   const isOverdue = t => t.status !== 'done' && t.due_date && new Date(t.due_date) < now;
 
   const filtered = tasks.filter(t => {
-    const matchTab = tab === 'all' ? true : tab === 'overdue' ? isOverdue(t) : (t.status === tab && !isOverdue(t));
+    const matchTab    = tab === 'all' ? true : tab === 'overdue' ? isOverdue(t) : (t.status === tab && !isOverdue(t));
     const matchSearch = !search || t.title.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
 
   const counts = {
-    all: tasks.length,
-    todo: tasks.filter(t => t.status === 'todo').length,
+    all:           tasks.length,
+    todo:          tasks.filter(t => t.status === 'todo').length,
     'in-progress': tasks.filter(t => t.status === 'in-progress').length,
-    done: tasks.filter(t => t.status === 'done').length,
-    overdue: tasks.filter(isOverdue).length,
+    done:          tasks.filter(t => t.status === 'done').length,
+    overdue:       tasks.filter(isOverdue).length,
   };
 
   const canDeleteTask = (t) => isDev || (isAdmin && t.created_by === user.id);
 
   const handleDeleteConfirmed = async () => {
     if (!deleteConfirm) return;
-    await tasksAPI.delete(deleteConfirm.id);
-    setDeleteConfirm(null);
-    load();
+    try { await tasksAPI.delete(deleteConfirm.id); }
+    catch(e) { console.error('Delete error:', e); }
+    finally { setDeleteConfirm(null); load(); }
   };
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><Spinner /></div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+      <Spinner />
+    </div>
+  );
 
-  /* ── Inline form views (no modal, no footer overlap) ── */
+  /* ── Inline form views ── */
   if (view === 'new') return (
     <TaskForm
-      projects={projects}
-      users={users}
+      projects={projects} users={users}
       onSave={() => { load(); setView('list'); }}
       onCancel={() => setView('list')}
     />
   );
   if (view === 'edit' && editTask) return (
     <TaskForm
-      initial={editTask}
-      projects={projects}
-      users={users}
+      initial={editTask} projects={projects} users={users}
       onSave={() => { load(); setView('list'); setEditTask(null); }}
       onCancel={() => { setView('list'); setEditTask(null); }}
     />
@@ -236,12 +250,18 @@ export default function Tasks() {
 
   return (
     <div style={{ overflowY: 'auto' }}>
+
+      {/* ── Header — matches Team page section-head exactly ── */}
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Tasks</h1>
           <p style={{ fontSize: 14, color: 'var(--text-2)' }}>{tasks.length} total tasks</p>
         </div>
-        {isAdmin && <button className="btn btn-primary" onClick={() => { setEditTask(null); setView('new'); }}>+ New Task</button>}
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => { setEditTask(null); setView('new'); }}>
+            + New Task
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }} className="au1">
@@ -252,63 +272,72 @@ export default function Tasks() {
               <span style={{
                 marginLeft: 5, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
                 background: tab === t.key ? `${t.color}25` : 'rgba(255,255,255,0.06)',
-                color: tab === t.key ? t.color : 'var(--text-3)'
+                color: tab === t.key ? t.color : 'var(--text-3)',
               }}>
                 {counts[t.key]}
               </span>
             </button>
           ))}
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)}
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍  Search tasks…"
-          style={{ flex: 1, minWidth: 200, maxWidth: 300, fontSize: 13 }} />
+          style={{ flex: 1, minWidth: 200, maxWidth: 300, fontSize: 13 }}
+        />
       </div>
 
       <div className="card au2" style={{ padding: '0.5rem 1.5rem', overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 100px', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', marginBottom: 4, minWidth: 580 }}>
-          {['Task', 'Assignee', 'Priority', 'Status', 'Actions'].map(h => (
+          {['Task','Assignee','Priority','Status','Actions'].map(h => (
             <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</div>
           ))}
         </div>
 
-        {filtered.length === 0 ? <Empty message={`No ${tab} tasks found.`} /> :
-          filtered.map(t => {
-            const assignee = users.find(u => u.id === t.assignee_id);
-            const proj     = projects.find(p => p.id === t.project_id);
-            const canEdit  = isAdmin || t.assignee_id === user.id;
-            const od       = isOverdue(t);
-            return (
-              <div key={t.id}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 100px', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--r-sm)', transition: 'background 0.15s', minWidth: 580 }}
-                onClick={() => setViewTask(t)}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{proj?.name || '—'} · {od ? <span style={{ color: '#f87171' }}>⚠ {t.due_date}</span> : (t.due_date || 'No date')}</div>
+        {filtered.length === 0
+          ? <Empty message={`No ${tab} tasks found.`} />
+          : filtered.map(t => {
+              const assignee = users.find(u => u.id === t.assignee_id);
+              const proj     = projects.find(p => p.id === t.project_id);
+              const canEdit  = isAdmin || t.assignee_id === user.id;
+              const od       = isOverdue(t);
+              return (
+                <div key={t.id}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 100px', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--r-sm)', transition: 'background 0.15s', minWidth: 580 }}
+                  onClick={() => setViewTask(t)}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      {proj?.name || '—'} · {od
+                        ? <span style={{ color: '#f87171' }}>⚠ {t.due_date}</span>
+                        : (t.due_date || 'No date')}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+                    <Avatar user={assignee || { name: '?' }} size={24} />
+                    <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {assignee?.name?.split(' ')[0] || '—'}
+                    </span>
+                  </div>
+                  <div onClick={e => e.stopPropagation()}><Badge priority={t.priority} /></div>
+                  <div onClick={e => e.stopPropagation()}><Badge status={taskStatusDisplay(t)} /></div>
+                  <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
+                    <button className="btn btn-sm" onClick={() => setViewTask(t)} title="View">👁</button>
+                    {canEdit && (
+                      <button className="btn btn-sm" onClick={() => { setEditTask(t); setView('edit'); }}>✎</button>
+                    )}
+                    {canDeleteTask(t) && (
+                      <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm({ id: t.id, name: t.title })}>✕</button>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-                  <Avatar user={assignee || { name: '?' }} size={24} />
-                  <span style={{ fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assignee?.name?.split(' ')[0] || '—'}</span>
-                </div>
-                <div onClick={e => e.stopPropagation()}><Badge priority={t.priority} /></div>
-                <div onClick={e => e.stopPropagation()}><Badge status={taskStatusDisplay(t)} /></div>
-                <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                  <button className="btn btn-sm" onClick={() => setViewTask(t)} title="View">👁</button>
-                  {canEdit && (
-                    <button className="btn btn-sm" onClick={() => { setEditTask(t); setView('edit'); }}>✎</button>
-                  )}
-                  {canDeleteTask(t) && (
-                    <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm({ id: t.id, name: t.title })}>✕</button>
-                  )}
-                </div>
-              </div>
-            );
-          })
+              );
+            })
         }
       </div>
 
-      {/* Delete confirm */}
+      {/* ── Delete confirm ── */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
           <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -330,9 +359,7 @@ export default function Tasks() {
 
       {viewTask && (
         <TaskDetailModal
-          task={viewTask}
-          users={users}
-          projects={projects}
+          task={viewTask} users={users} projects={projects}
           onClose={() => setViewTask(null)}
           onEdit={t => { setEditTask(t); setViewTask(null); setView('edit'); }}
         />
