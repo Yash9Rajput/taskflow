@@ -28,6 +28,50 @@ function ConfirmDeleteModal({ note, onConfirm, onCancel }) {
   );
 }
 
+/* ─── File attachment helper ─── */
+function FileAttachment({ fileData, fileName, fileType }) {
+  if (!fileData) return null;
+
+  // Image files — show inline preview
+  if (fileData.startsWith('data:image')) {
+    return (
+      <img
+        src={fileData}
+        alt={fileName || 'attachment'}
+        style={{width:'100%',borderRadius:'var(--r-md)',marginBottom:'1.5rem',maxHeight:300,objectFit:'cover'}}
+      />
+    );
+  }
+
+  // PDF or other file — show a styled download/open button
+  const isPDF = fileData.startsWith('data:application/pdf') || (fileName && fileName.toLowerCase().endsWith('.pdf'));
+  const icon  = isPDF ? '📄' : '📎';
+  const label = fileName || (isPDF ? 'View PDF' : 'Download File');
+
+  return (
+    <a
+      href={fileData}
+      download={fileName || 'attachment'}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display:'inline-flex', alignItems:'center', gap:8,
+        padding:'10px 16px', borderRadius:'var(--r-sm)',
+        background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.25)',
+        color:'#a5b4fc', fontSize:13, fontWeight:500,
+        textDecoration:'none', marginBottom:'1.5rem',
+        transition:'background 0.15s',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background='rgba(99,102,241,0.2)'}
+      onMouseLeave={e => e.currentTarget.style.background='rgba(99,102,241,0.1)'}
+    >
+      <span style={{fontSize:18}}>{icon}</span>
+      {label}
+      <span style={{fontSize:11,opacity:0.7}}>↗ Open</span>
+    </a>
+  );
+}
+
 function NoteDetail({ note, onBack, onEdit, onDelete, canDelete }) {
   const share = () => {
     if (navigator.share) {
@@ -58,7 +102,10 @@ function NoteDetail({ note, onBack, onEdit, onDelete, canDelete }) {
           <span>📅 {note.date}</span>
           {note.savedAt && <span>⭐ Saved</span>}
         </div>
-        {note.imageUrl && <img src={note.imageUrl} alt="attachment" style={{width:'100%',borderRadius:'var(--r-md)',marginBottom:'1.5rem',maxHeight:300,objectFit:'cover'}}/>}
+
+        {/* ── Fixed: proper file rendering instead of plain "attachment" text ── */}
+        <FileAttachment fileData={note.imageUrl} fileName={note.fileName} fileType={note.fileType} />
+
         <div style={{fontSize:15,lineHeight:1.9,color:'var(--text-2)',whiteSpace:'pre-wrap'}}>{note.body}</div>
       </div>
     </div>
@@ -67,12 +114,17 @@ function NoteDetail({ note, onBack, onEdit, onDelete, canDelete }) {
 
 function NoteForm({ initial, onSave, onCancel }) {
   const { user } = useAuth();
-  const [form, setForm] = useState(initial || { title:'', body:'', tags:'', imageUrl:'' });
+  const [form, setForm] = useState(initial || { title:'', body:'', tags:'', imageUrl:'', fileName:'', fileType:'' });
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Store file name and type alongside the data so we can render it properly later
+    set('fileName', file.name);
+    set('fileType', file.type);
+
     const reader = new FileReader();
     reader.onload = (ev) => set('imageUrl', ev.target.result);
     reader.readAsDataURL(file);
@@ -88,6 +140,36 @@ function NoteForm({ initial, onSave, onCancel }) {
     });
   };
 
+  // Preview the selected file
+  const renderPreview = () => {
+    if (!form.imageUrl) return null;
+    if (form.imageUrl.startsWith('data:image')) {
+      return (
+        <img src={form.imageUrl} alt="preview"
+          style={{width:'100%',borderRadius:'var(--r-md)',marginBottom:'1rem',maxHeight:200,objectFit:'cover'}}/>
+      );
+    }
+    // Non-image file preview
+    const isPDF = form.imageUrl.startsWith('data:application/pdf') || (form.fileName && form.fileName.toLowerCase().endsWith('.pdf'));
+    return (
+      <div style={{
+        display:'flex', alignItems:'center', gap:10, padding:'12px 16px',
+        borderRadius:'var(--r-sm)', background:'rgba(99,102,241,0.08)',
+        border:'1px solid rgba(99,102,241,0.2)', marginBottom:'1rem',
+      }}>
+        <span style={{fontSize:24}}>{isPDF ? '📄' : '📎'}</span>
+        <div>
+          <div style={{fontSize:13,fontWeight:500,color:'var(--text)'}}>{form.fileName || 'Attached file'}</div>
+          <div style={{fontSize:11,color:'var(--text-3)'}}>File attached — will be saved with note</div>
+        </div>
+        <button
+          onClick={() => { set('imageUrl',''); set('fileName',''); set('fileType',''); }}
+          style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'#f87171',fontSize:18}}
+          title="Remove file">×</button>
+      </div>
+    );
+  };
+
   return (
     <div style={{animation:'scaleIn 0.3s ease',overflowY:'auto',maxHeight:'calc(100vh - 140px)'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:'1.5rem'}}>
@@ -95,18 +177,19 @@ function NoteForm({ initial, onSave, onCancel }) {
         <h2 style={{fontFamily:'var(--font-d)',fontSize:20,fontWeight:600}}>{initial?'Edit Note':'New Note'}</h2>
       </div>
       <div className="card" style={{padding:'2rem',maxWidth:720,margin:'0 auto'}}>
-        <div className="field"><label>Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Note title…" style={{fontSize:18,fontFamily:'var(--font-d)',fontWeight:600}}/></div>
+        <div className="field"><label>Title *</label><input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Note title…" style={{fontSize:18,fontFamily:'var(--font-d)',fontWeight:600}} autoFocus/></div>
         <div className="field"><label>Content</label><textarea value={form.body} onChange={e=>set('body',e.target.value)} placeholder="Write your note here…" style={{minHeight:300,lineHeight:1.8,fontSize:14}}/></div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           <div className="field"><label>Tags (comma separated)</label><input value={form.tags} onChange={e=>set('tags',e.target.value)} placeholder="work, ideas, todo"/></div>
           <div className="field">
             <label>Attach Image / File</label>
-            <input type="file" accept="image/*,application/pdf" onChange={handleFile} style={{padding:'6px'}}/>
+            <input type="file" accept="image/*,application/pdf,.doc,.docx,.txt,.xlsx,.csv" onChange={handleFile} style={{padding:'6px'}}/>
           </div>
         </div>
-        {form.imageUrl && form.imageUrl.startsWith('data:image') && (
-          <img src={form.imageUrl} alt="preview" style={{width:'100%',borderRadius:'var(--r-md)',marginBottom:'1rem',maxHeight:200,objectFit:'cover'}}/>
-        )}
+
+        {/* Fixed preview — handles both images and non-image files */}
+        {renderPreview()}
+
         <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:'0.5rem'}}>
           <button className="btn" onClick={onCancel}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave}>💾 Save Note</button>
@@ -175,6 +258,10 @@ export default function Notes() {
     return view==='saved'?(m&&n.savedAt):m;
   });
 
+  // Helper to check if note has any attachment
+  const hasAttachment = (n) => !!n.imageUrl;
+  const isImageAttachment = (n) => n.imageUrl && n.imageUrl.startsWith('data:image');
+
   return (
     <div style={{overflowY:'auto'}}>
       {deleteTarget && (
@@ -210,7 +297,19 @@ export default function Notes() {
           {displayNotes.map(n => (
             <div key={n.id} className="card card-hover" style={{padding:'1.25rem',cursor:'pointer',position:'relative'}}
               onClick={()=>{setCurrent(n);setView('detail');}}>
-              {n.imageUrl&&n.imageUrl.startsWith('data:image')&&<img src={n.imageUrl} alt="" style={{width:'100%',height:130,objectFit:'cover',borderRadius:'var(--r-sm)',marginBottom:'0.75rem'}}/>}
+
+              {/* Only show image preview on card — not for PDFs/docs */}
+              {isImageAttachment(n) && (
+                <img src={n.imageUrl} alt="" style={{width:'100%',height:130,objectFit:'cover',borderRadius:'var(--r-sm)',marginBottom:'0.75rem'}}/>
+              )}
+
+              {/* Show a small file badge for non-image attachments */}
+              {hasAttachment(n) && !isImageAttachment(n) && (
+                <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'3px 10px',borderRadius:999,background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.2)',fontSize:11,color:'#a5b4fc',marginBottom:'0.75rem'}}>
+                  📎 {n.fileName || 'Attachment'}
+                </div>
+              )}
+
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                 <h3 style={{fontFamily:'var(--font-d)',fontSize:15,fontWeight:600,flex:1,paddingRight:'0.5rem'}}>{n.title}</h3>
                 <button onClick={e=>{e.stopPropagation();toggleSave(n.id);}} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,opacity:n.savedAt?1:0.3,transition:'opacity 0.2s'}}>⭐</button>
