@@ -41,8 +41,10 @@ async function initPostgres() {
     CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'member',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT '',created_by TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS project_members (project_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(project_id,user_id));
-    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY,project_id TEXT NOT NULL,title TEXT NOT NULL,description TEXT DEFAULT '',status TEXT NOT NULL DEFAULT 'todo',priority TEXT NOT NULL DEFAULT 'medium',assignee_id TEXT,due_date TEXT,created_by TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY,project_id TEXT,title TEXT NOT NULL,description TEXT DEFAULT '',status TEXT NOT NULL DEFAULT 'todo',priority TEXT NOT NULL DEFAULT 'medium',assignee_id TEXT,due_date TEXT,created_by TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
   `);
+  // Migration: drop NOT NULL on project_id for already-deployed DBs
+  try { await pool.query('ALTER TABLE tasks ALTER COLUMN project_id DROP NOT NULL'); console.log('Migration: project_id nullable'); } catch(e) { /* already nullable or fresh DB */ }
   console.log('PostgreSQL ready');
 }
 
@@ -62,7 +64,7 @@ async function initSqlite() {
     },
     exec(sql) { rawDb.run(sql); persist(); },
   };
-  rawDb.run(`CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'member',created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT'',created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS project_members(project_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(project_id,user_id));CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,title TEXT NOT NULL,description TEXT DEFAULT'',status TEXT NOT NULL DEFAULT'todo',priority TEXT NOT NULL DEFAULT'medium',assignee_id TEXT,due_date TEXT,created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')),updated_at TEXT NOT NULL DEFAULT(datetime('now')));`);
+  rawDb.run(`CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'member',created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT'',created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS project_members(project_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(project_id,user_id));CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY,project_id TEXT,title TEXT NOT NULL,description TEXT DEFAULT'',status TEXT NOT NULL DEFAULT'todo',priority TEXT NOT NULL DEFAULT'medium',assignee_id TEXT,due_date TEXT,created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')),updated_at TEXT NOT NULL DEFAULT(datetime('now')));`);
   persist();
   console.log('SQLite ready (sql.js)');
 }
