@@ -67,8 +67,8 @@ function ProjectForm({ initial, users, onSave, onCancel }) {
         </h2>
       </div>
 
-      {/* Full-width card — same as Notes form */}
-      <div className="card" style={{ padding: '2rem' }}>
+      {/* Card — same width/centering as Notes form */}
+      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
         {error && (
           <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
             ⚠ {error}
@@ -539,7 +539,7 @@ function InlineTaskForm({ task, projects, users, defaultProjectId, onSave, onCan
         </h2>
       </div>
 
-      <div className="card" style={{ padding: '2rem' }}>
+      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
         {error && (
           <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
             ⚠ {error}
