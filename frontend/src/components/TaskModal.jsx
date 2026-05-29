@@ -13,14 +13,12 @@ export default function TaskModal({ task, projects, users, defaultProjectId, onC
   });
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
-      // Build clean payload — send null instead of empty string
       const payload = {
         title:       form.title,
         description: form.description,
@@ -35,78 +33,92 @@ export default function TaskModal({ task, projects, users, defaultProjectId, onC
       onSaved();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save task');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const statusOpts = [{v:'todo',l:'To Do'},{v:'in-progress',l:'In Progress'},{v:'done',l:'Done'}];
-  const prioOpts   = [{v:'low',l:'🟢 Low'},{v:'medium',l:'🟡 Medium'},{v:'high',l:'🔴 High'}];
+  const statusOpts = [{ v: 'todo', l: 'To Do' }, { v: 'in-progress', l: 'In Progress' }, { v: 'done', l: 'Done' }];
+  const prioOpts   = [{ v: 'low', l: '🟢 Low' }, { v: 'medium', l: '🟡 Medium' }, { v: 'high', l: '🔴 High' }];
 
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal-box" style={{maxWidth:520,maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
+    <div
+      onClick={e => e.target === e.currentTarget && onClose()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+      }}>
+      <div style={{
+        background: 'var(--bg-card)', border: '1px solid var(--border-hi)',
+        borderRadius: 'var(--r-xl)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+        maxWidth: 520, width: '100%', maxHeight: '88vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        animation: 'scaleIn 0.2s ease',
+      }}>
         {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem',flexShrink:0}}>
-          <div style={{fontFamily:'var(--font-d)',fontSize:17,fontWeight:600}}>{task ? 'Edit Task' : 'New Task'}</div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm">✕</button>
+        <div style={{ padding: '1.5rem 1.5rem 0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div style={{ fontFamily: 'var(--font-d)', fontSize: 17, fontWeight: 600 }}>
+              {task ? 'Edit Task' : 'New Task'}
+            </div>
+            <button onClick={onClose} className="btn btn-ghost btn-sm">✕</button>
+          </div>
+          {error && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#fca5a5', marginBottom: '1rem' }}>
+              ⚠ {error}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'var(--r-sm)',padding:'10px 14px',fontSize:13,color:'#fca5a5',marginBottom:'1rem',flexShrink:0}}>
-            ⚠ {error}
-          </div>
-        )}
-
         {/* Scrollable body */}
-        <div style={{overflowY:'auto',flex:1,paddingRight:2}}>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '0 1.5rem' }}>
           <div className="field">
             <label>Title *</label>
-            <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="Task title"/>
+            <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Task title" autoFocus />
           </div>
           <div className="field">
             <label>Description</label>
-            <textarea value={form.description} onChange={e=>set('description',e.target.value)}
-              placeholder="What needs to be done?" style={{minHeight:80}}/>
+            <textarea value={form.description} onChange={e => set('description', e.target.value)}
+              placeholder="What needs to be done?" style={{ minHeight: 80 }} />
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field">
               <label>Project</label>
-              <select value={form.project_id} onChange={e=>set('project_id',e.target.value)}>
+              <select value={form.project_id} onChange={e => set('project_id', e.target.value)}>
                 <option value="">No project</option>
-                {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div className="field">
               <label>Assignee</label>
-              <select value={form.assignee_id} onChange={e=>set('assignee_id',e.target.value)}>
+              <select value={form.assignee_id} onChange={e => set('assignee_id', e.target.value)}>
                 <option value="">Unassigned</option>
-                {users.map(u=><option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+                {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
               </select>
             </div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field">
               <label>Status</label>
-              <select value={form.status} onChange={e=>set('status',e.target.value)}>
-                {statusOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+              <select value={form.status} onChange={e => set('status', e.target.value)}>
+                {statusOpts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
             <div className="field">
               <label>Priority</label>
-              <select value={form.priority} onChange={e=>set('priority',e.target.value)}>
-                {prioOpts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+              <select value={form.priority} onChange={e => set('priority', e.target.value)}>
+                {prioOpts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
           </div>
           <div className="field">
             <label>Due Date</label>
-            <input type="date" value={form.due_date} onChange={e=>set('due_date',e.target.value)}/>
+            <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} />
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{display:'flex',gap:8,justifyContent:'flex-end',paddingTop:'1rem',borderTop:'1px solid var(--border)',flexShrink:0}}>
+        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
             {loading ? 'Saving…' : (task ? 'Update Task' : 'Save Task')}
