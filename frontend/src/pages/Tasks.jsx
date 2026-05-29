@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { tasksAPI, projectsAPI, usersAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge, Spinner, Empty, taskStatusDisplay } from '../components/UI';
-import TaskDetailModal from '../components/TaskDetailModal';
 
 const DEV_EMAILS = ['ry1555530@gmail.com','rajput.kyar@gmail.com'];
 
@@ -14,8 +13,127 @@ const TABS = [
   { key:'overdue',     label:'Overdue',     color:'#f87171' },
 ];
 
-const PRIORITY_OPTIONS = ['low','medium','high','urgent'];
+const PRIORITY_OPTIONS = ['low','medium','high'];
 const STATUS_OPTIONS   = ['todo','in-progress','done'];
+
+const labelStyle = {
+  fontSize: 11, fontWeight: 600, color: 'var(--text-3)',
+  textTransform: 'uppercase', letterSpacing: '0.08em',
+  display: 'block', marginBottom: 6,
+};
+const selectStyle = {
+  width: '100%', padding: '10px 12px', borderRadius: 'var(--r-sm)',
+  border: '1px solid var(--border)',
+  background: 'rgba(255,255,255,0.05)',
+  color: 'var(--text)', fontSize: 13,
+};
+const priorityColors = { low: '#34d399', medium: '#fbbf24', high: '#f87171', urgent: '#f43f5e' };
+const statusColors   = { todo: '#818cf8', 'in-progress': '#fbbf24', done: '#34d399', overdue: '#f87171' };
+
+/* ─── Inline Task Detail (full page, no modal) ─── */
+function TaskDetail({ task, users, projects, onBack, onEdit }) {
+  const assignee = users?.find(u => u.id === task.assignee_id);
+  const project  = projects?.find(p => p.id === task.project_id);
+  const status   = taskStatusDisplay(task);
+  const isOverdue = task.status !== 'done' && task.due_date && new Date(task.due_date) < new Date();
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
+        <button className="btn" onClick={onBack}
+          style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
+          ← Back
+        </button>
+        <h2 style={{ fontFamily: 'var(--font-d)', fontSize: 20, fontWeight: 600 }}>Task Details</h2>
+        <div style={{ flex: 1 }} />
+        {onEdit && (
+          <button className="btn btn-primary" onClick={() => onEdit(task)}>✎ Edit Task</button>
+        )}
+      </div>
+
+      <div className="card" style={{ padding: '2rem' }}>
+        {/* Title + badges */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+            background: `${statusColors[status] || '#818cf8'}20`,
+            color: statusColors[status] || '#818cf8',
+            border: `1px solid ${statusColors[status] || '#818cf8'}40` }}>
+            {status === 'in-progress' ? 'In Progress' : (status?.charAt(0).toUpperCase() + status?.slice(1))}
+          </span>
+          <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+            background: `${priorityColors[task.priority] || '#818cf8'}20`,
+            color: priorityColors[task.priority] || '#818cf8',
+            border: `1px solid ${priorityColors[task.priority] || '#818cf8'}40`,
+            textTransform: 'capitalize' }}>
+            {task.priority}
+          </span>
+        </div>
+        <h1 style={{ fontFamily: 'var(--font-d)', fontSize: 24, fontWeight: 700, marginBottom: '1.5rem', lineHeight: 1.3 }}>
+          {task.title}
+        </h1>
+
+        {/* Description */}
+        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r-md)', padding: '1rem', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Description</div>
+          <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+            {task.description || <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>No description provided.</span>}
+          </div>
+        </div>
+
+        {/* Meta grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            {
+              label: 'Assignee',
+              content: assignee
+                ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Avatar user={assignee} size={28} />
+                    <span style={{ fontSize: 14 }}>{assignee.name}</span>
+                  </div>
+                : <span style={{ color: 'var(--text-3)', fontSize: 14 }}>Unassigned</span>,
+            },
+            {
+              label: 'Project',
+              content: <span style={{ fontSize: 14 }}>{project?.name || '—'}</span>,
+            },
+            {
+              label: 'Due Date',
+              content: <span style={{ fontSize: 14, color: isOverdue ? '#f87171' : 'var(--text)' }}>
+                {isOverdue && '⚠ '}{task.due_date || '—'}
+              </span>,
+            },
+            {
+              label: 'Created',
+              content: <span style={{ fontSize: 14 }}>{task.created_at?.slice(0, 10) || '—'}</span>,
+            },
+            {
+              label: 'Priority',
+              content: <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: priorityColors[task.priority] || '#818cf8' }} />
+                <span style={{ fontSize: 14, textTransform: 'capitalize' }}>{task.priority}</span>
+              </div>,
+            },
+            {
+              label: 'Status',
+              content: <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: statusColors[status] || 'var(--accent)' }} />
+                <span style={{ fontSize: 14 }}>
+                  {status === 'in-progress' ? 'In Progress' : (status?.charAt(0).toUpperCase() + status?.slice(1))}
+                </span>
+              </div>,
+            },
+          ].map(item => (
+            <div key={item.label} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{item.label}</div>
+              {item.content}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Inline Task Form ─── */
 function TaskForm({ initial, projects, users, onSave, onCancel }) {
@@ -30,14 +148,12 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
-
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.title.trim()) { setError('Task title is required.'); return; }
     setSaving(true); setError('');
     try {
-      // Send null instead of empty string — empty strings break many backends
       const payload = {
         title:       form.title.trim(),
         description: form.description.trim() || null,
@@ -47,35 +163,16 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
         priority:    form.priority,
         due_date:    form.due_date    || null,
       };
-      if (initial) {
-        await tasksAPI.update(initial.id, payload);
-      } else {
-        await tasksAPI.create(payload);
-      }
+      if (initial) await tasksAPI.update(initial.id, payload);
+      else          await tasksAPI.create(payload);
       onSave();
     } catch (e) {
-      console.error('Task save error:', e);
-      setError(e?.response?.data?.message || e?.message || 'Failed to save task. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const labelStyle = {
-    fontSize: 11, fontWeight: 600, color: 'var(--text-3)',
-    textTransform: 'uppercase', letterSpacing: '0.08em',
-    display: 'block', marginBottom: 6,
-  };
-  const selectStyle = {
-    width: '100%', padding: '10px 12px', borderRadius: 'var(--r-sm)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-input, rgba(255,255,255,0.05))',
-    color: 'var(--text)', fontSize: 13,
+      setError(e?.response?.data?.error || e?.message || 'Failed to save task.');
+    } finally { setSaving(false); }
   };
 
   return (
-    <div style={{ overflowY: 'auto' }}>
-      {/* Header — same style as Notes "New Note" header */}
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
         <button className="btn" onClick={onCancel}
           style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
@@ -86,7 +183,6 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
         </h2>
       </div>
 
-      {/* Card — same full-width card as Notes form, no maxWidth constraint */}
       <div className="card" style={{ padding: '2rem' }}>
         {error && (
           <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
@@ -96,23 +192,14 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
 
         <div className="field">
           <label style={labelStyle}>Title *</label>
-          <input
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            placeholder="Task title"
-            style={{ fontSize: 18, fontFamily: 'var(--font-d)', fontWeight: 600 }}
-            autoFocus
-          />
+          <input value={form.title} onChange={e => set('title', e.target.value)}
+            placeholder="Task title" style={{ fontSize: 18, fontFamily: 'var(--font-d)', fontWeight: 600 }} autoFocus />
         </div>
 
         <div className="field">
           <label style={labelStyle}>Description</label>
-          <textarea
-            value={form.description}
-            onChange={e => set('description', e.target.value)}
-            placeholder="What needs to be done?"
-            style={{ minHeight: 140, lineHeight: 1.8, fontSize: 14 }}
-          />
+          <textarea value={form.description} onChange={e => set('description', e.target.value)}
+            placeholder="What needs to be done?" style={{ minHeight: 140, lineHeight: 1.8, fontSize: 14 }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: '1rem' }}>
@@ -123,7 +210,6 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-
           <div>
             <label style={labelStyle}>Assignee</label>
             <select value={form.assignee_id} onChange={e => set('assignee_id', e.target.value)} style={selectStyle}>
@@ -131,18 +217,14 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
-
           <div>
             <label style={labelStyle}>Status</label>
             <select value={form.status} onChange={e => set('status', e.target.value)} style={selectStyle}>
               {STATUS_OPTIONS.map(s => (
-                <option key={s} value={s}>
-                  {s === 'in-progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
-                </option>
+                <option key={s} value={s}>{s === 'in-progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
               ))}
             </select>
           </div>
-
           <div>
             <label style={labelStyle}>Priority</label>
             <select value={form.priority} onChange={e => set('priority', e.target.value)} style={selectStyle}>
@@ -155,18 +237,13 @@ function TaskForm({ initial, projects, users, onSave, onCancel }) {
 
         <div className="field">
           <label style={labelStyle}>Due Date</label>
-          <input
-            type="date"
-            value={form.due_date}
-            onChange={e => set('due_date', e.target.value)}
-            style={{ fontSize: 14 }}
-          />
+          <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} style={{ fontSize: 14 }} />
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: '1.5rem' }}>
           <button className="btn" onClick={onCancel} disabled={saving}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? '⏳ Saving...' : '💾 Save Task'}
+            {saving ? '⏳ Saving…' : '💾 Save Task'}
           </button>
         </div>
       </div>
@@ -185,7 +262,7 @@ export default function Tasks() {
   const [users,    setUsers]    = useState([]);
   const [tab,      setTab]      = useState('all');
   const [loading,  setLoading]  = useState(true);
-  const [view,     setView]     = useState('list'); // 'list' | 'new' | 'edit'
+  const [view,     setView]     = useState('list'); // 'list' | 'new' | 'edit' | 'detail'
   const [editTask, setEditTask] = useState(null);
   const [viewTask, setViewTask] = useState(null);
   const [search,   setSearch]   = useState('');
@@ -232,26 +309,33 @@ export default function Tasks() {
     </div>
   );
 
-  /* ── Inline form views ── */
+  /* ── Full page views — no modals, no footer overlap ── */
   if (view === 'new') return (
-    <TaskForm
-      projects={projects} users={users}
+    <TaskForm projects={projects} users={users}
       onSave={() => { load(); setView('list'); }}
-      onCancel={() => setView('list')}
-    />
+      onCancel={() => setView('list')} />
   );
+
   if (view === 'edit' && editTask) return (
-    <TaskForm
-      initial={editTask} projects={projects} users={users}
+    <TaskForm initial={editTask} projects={projects} users={users}
       onSave={() => { load(); setView('list'); setEditTask(null); }}
-      onCancel={() => { setView('list'); setEditTask(null); }}
+      onCancel={() => { setView('list'); setEditTask(null); }} />
+  );
+
+  /* ── Task detail as full inline page ── */
+  if (view === 'detail' && viewTask) return (
+    <TaskDetail
+      task={viewTask} users={users} projects={projects}
+      onBack={() => { setView('list'); setViewTask(null); }}
+      onEdit={isAdmin || viewTask.assignee_id === user.id
+        ? t => { setEditTask(t); setViewTask(null); setView('edit'); }
+        : null}
     />
   );
 
   return (
-    <div style={{ overflowY: 'auto' }}>
-
-      {/* ── Header — matches Team page section-head exactly ── */}
+    <div>
+      {/* Header */}
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Tasks</h1>
@@ -264,30 +348,28 @@ export default function Tasks() {
         )}
       </div>
 
+      {/* Tabs + search */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }} className="au1">
         <div className="tabs">
           {TABS.map(t => (
             <button key={t.key} className={`tab-btn ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
               {t.label}
-              <span style={{
-                marginLeft: 5, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+              <span style={{ marginLeft: 5, padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
                 background: tab === t.key ? `${t.color}25` : 'rgba(255,255,255,0.06)',
-                color: tab === t.key ? t.color : 'var(--text-3)',
-              }}>
+                color: tab === t.key ? t.color : 'var(--text-3)' }}>
                 {counts[t.key]}
               </span>
             </button>
           ))}
         </div>
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
+        <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍  Search tasks…"
-          style={{ flex: 1, minWidth: 200, maxWidth: 300, fontSize: 13 }}
-        />
+          style={{ flex: 1, minWidth: 200, maxWidth: 300, fontSize: 13 }} />
       </div>
 
+      {/* Task table */}
       <div className="card au2" style={{ padding: '0.5rem 1.5rem', overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 100px', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', marginBottom: 4, minWidth: 580 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 110px', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', marginBottom: 4, minWidth: 580 }}>
           {['Task','Assignee','Priority','Status','Actions'].map(h => (
             <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</div>
           ))}
@@ -302,8 +384,8 @@ export default function Tasks() {
               const od       = isOverdue(t);
               return (
                 <div key={t.id}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 100px', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--r-sm)', transition: 'background 0.15s', minWidth: 580 }}
-                  onClick={() => setViewTask(t)}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 130px 80px 110px 110px', gap: 12, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', cursor: 'pointer', borderRadius: 'var(--r-sm)', transition: 'background 0.15s', minWidth: 580 }}
+                  onClick={() => { setViewTask(t); setView('detail'); }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <div style={{ minWidth: 0 }}>
@@ -323,12 +405,15 @@ export default function Tasks() {
                   <div onClick={e => e.stopPropagation()}><Badge priority={t.priority} /></div>
                   <div onClick={e => e.stopPropagation()}><Badge status={taskStatusDisplay(t)} /></div>
                   <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                    <button className="btn btn-sm" onClick={() => setViewTask(t)} title="View">👁</button>
+                    <button className="btn btn-sm" title="View"
+                      onClick={() => { setViewTask(t); setView('detail'); }}>👁</button>
                     {canEdit && (
-                      <button className="btn btn-sm" onClick={() => { setEditTask(t); setView('edit'); }}>✎</button>
+                      <button className="btn btn-sm"
+                        onClick={() => { setEditTask(t); setView('edit'); }}>✎</button>
                     )}
                     {canDeleteTask(t) && (
-                      <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm({ id: t.id, name: t.title })}>✕</button>
+                      <button className="btn btn-sm btn-danger"
+                        onClick={() => setDeleteConfirm({ id: t.id, name: t.title })}>✕</button>
                     )}
                   </div>
                 </div>
@@ -337,14 +422,16 @@ export default function Tasks() {
         }
       </div>
 
-      {/* ── Delete confirm ── */}
+      {/* Delete confirm — uses position:fixed so it's never clipped */}
       {deleteConfirm && (
-        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal-box" style={{ maxWidth: 400, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+        <div onClick={() => setDeleteConfirm(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)', maxWidth: 400, width: '100%', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.2s ease' }}
+            onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 48, marginBottom: '1rem' }}>⚠️</div>
             <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Delete Task?</div>
             <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 4 }}>
-              <strong style={{ color: 'var(--text)' }}>&ldquo;{deleteConfirm.name}&rdquo;</strong>
+              <strong>&ldquo;{deleteConfirm.name}&rdquo;</strong>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
               This will permanently delete this task. This cannot be undone.
@@ -355,14 +442,6 @@ export default function Tasks() {
             </div>
           </div>
         </div>
-      )}
-
-      {viewTask && (
-        <TaskDetailModal
-          task={viewTask} users={users} projects={projects}
-          onClose={() => setViewTask(null)}
-          onEdit={t => { setEditTask(t); setViewTask(null); setView('edit'); }}
-        />
       )}
     </div>
   );
