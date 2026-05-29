@@ -6,9 +6,10 @@ export default function ProjectModal({ project, users, onClose, onSaved }) {
   const [form, setForm] = useState({
     name:        project?.name        || '',
     description: project?.description || '',
-    memberIds:   project?.members?.map(m=>m.id||m) || [],
+    memberIds:   project?.members?.map(m => m.id || m) || [],
   });
   const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
   const [search,  setSearch]  = useState('');
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
@@ -17,14 +18,24 @@ export default function ProjectModal({ project, users, onClose, onSaved }) {
     memberIds: f.memberIds.includes(id) ? f.memberIds.filter(x=>x!==id) : [...f.memberIds, id],
   }));
 
-  const handleSave = async() => {
+  const handleSave = async () => {
     if (!form.name.trim()) return;
     setLoading(true);
+    setError('');
     try {
-      if (project) await projectsAPI.update(project.id, form);
-      else          await projectsAPI.create(form);
+      const payload = {
+        name:       form.name,
+        description: form.description,
+        member_ids: form.memberIds,   // ← backend expects member_ids
+      };
+      if (project) await projectsAPI.update(project.id, payload);
+      else          await projectsAPI.create(payload);
       onSaved();
-    } finally { setLoading(false); }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save project');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredUsers = users.filter(u =>
@@ -40,14 +51,27 @@ export default function ProjectModal({ project, users, onClose, onSaved }) {
           <button onClick={onClose} className="btn btn-ghost btn-sm">✕</button>
         </div>
 
-        {/* Scrollable body */}
+        {error && (
+          <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'var(--r-sm)',padding:'10px 14px',fontSize:13,color:'#fca5a5',marginBottom:'1rem',flexShrink:0}}>
+            ⚠ {error}
+          </div>
+        )}
+
+        {/* Body */}
         <div style={{overflowY:'auto',flex:1}}>
-          <div className="field"><label>Project Name *</label><input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Website Redesign"/></div>
-          <div className="field"><label>Description</label><textarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="What is this project about?" style={{minHeight:80}}/></div>
+          <div className="field">
+            <label>Project Name *</label>
+            <input value={form.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Website Redesign"/>
+          </div>
+          <div className="field">
+            <label>Description</label>
+            <textarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="What is this project about?" style={{minHeight:80}}/>
+          </div>
           <div className="field">
             <label>Team Members ({form.memberIds.length} selected)</label>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search members…" style={{marginBottom:8,fontSize:12}}/>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,maxHeight:200,overflowY:'auto',paddingRight:4}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="🔍 Search members…" style={{marginBottom:8,fontSize:12}}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,maxHeight:220,overflowY:'auto',paddingRight:4}}>
               {filteredUsers.map(u=>{
                 const sel = form.memberIds.includes(u.id);
                 return (
@@ -56,7 +80,7 @@ export default function ProjectModal({ project, users, onClose, onSaved }) {
                     <Avatar user={u} size={24}/>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,color:sel?'#a5b4fc':'var(--text-2)',fontWeight:sel?600:400,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.name}</div>
-                      <div style={{fontSize:10,color:'var(--text-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.role}</div>
+                      <div style={{fontSize:10,color:'var(--text-3)'}}>{u.role}</div>
                     </div>
                     {sel && <span style={{color:'var(--accent)',fontSize:14,flexShrink:0}}>✓</span>}
                   </div>
@@ -69,7 +93,9 @@ export default function ProjectModal({ project, users, onClose, onSaved }) {
         {/* Footer */}
         <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:'1rem',paddingTop:'1rem',borderTop:'1px solid var(--border)',flexShrink:0}}>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={loading}>{loading?'Saving…':'Save Project'}</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving…' : (project ? 'Update Project' : 'Save Project')}
+          </button>
         </div>
       </div>
     </div>
