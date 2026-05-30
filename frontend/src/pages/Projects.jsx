@@ -55,7 +55,7 @@ function ProjectForm({ initial, users, onSave, onCancel }) {
   );
 
   return (
-    <div style={{ overflowY: 'auto' }}>
+    <div style={{ animation: 'scaleIn 0.3s ease', overflowY: 'auto', maxHeight: 'calc(100vh - 140px)' }}>
       {/* Header — same style as Notes */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
         <button className="btn" onClick={onCancel}
@@ -68,7 +68,7 @@ function ProjectForm({ initial, users, onSave, onCancel }) {
       </div>
 
       {/* Card — same width/centering as Notes form */}
-      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
+      <div className="card" style={{ padding: '2rem', width: '100%', maxWidth: 720, margin: '0 auto', boxSizing: 'border-box' }}>
         {error && (
           <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
             ⚠ {error}
@@ -101,7 +101,7 @@ function ProjectForm({ initial, users, onSave, onCancel }) {
             placeholder="🔍 Search members…"
             style={{ marginBottom: 12, fontSize: 13 }}
           />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, width: '100%' }}>
             {filteredUsers.map(u => {
               const sel = form.memberIds.includes(u.id);
               return (
@@ -539,7 +539,7 @@ function InlineTaskForm({ task, projects, users, defaultProjectId, onSave, onCan
         </h2>
       </div>
 
-      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto' }}>
+      <div className="card" style={{ padding: '2rem', width: '100%', maxWidth: 720, margin: '0 auto', boxSizing: 'border-box' }}>
         {error && (
           <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
             ⚠ {error}
