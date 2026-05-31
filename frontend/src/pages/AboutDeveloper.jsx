@@ -93,6 +93,12 @@ export default function AboutDeveloper() {
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.transform = 'none'; }}>
                 ⬡ GitHub/Yash9Rajput
               </a>
+              <a href="https://drive.google.com/file/d/1ohZgTzWezmWXVxwksWkpYl9IKnLqqIun/view?usp=sharing" target="_blank" rel="noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 'var(--r-sm)', background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#67e8f9', fontSize: 13, fontWeight: 500, textDecoration: 'none', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(47, 63, 66, 0.2)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(54, 75, 79, 0.1)'; e.currentTarget.style.transform = 'none'; }}>
+                📄 Resume
+              </a>
             </div>
           </div>
         </div>
