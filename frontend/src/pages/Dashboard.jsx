@@ -30,14 +30,17 @@ export default function Dashboard() {
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'60vh'}}><Spinner/></div>;
   if (!data)   return <Empty message="Could not load dashboard."/>;
 
-  const { stats, recent_tasks=[], projects: projStats=[] } = data;
-  const total = stats.total_tasks||0;
-  const todo  = Math.max(0, total-(stats.done||0)-(stats.in_progress||0)-(stats.overdue||0));
+  const { stats={}, recent_tasks=[], projects: projStats=[] } = data || {};
+  const total     = parseInt(stats.total_tasks) || 0;
+  const statsDone = parseInt(statsDone)        || 0;
+  const statsIP   = parseInt(statsIP) || 0;
+  const statsOD   = parseInt(statsOD)     || 0;
+  const todo      = Math.max(0, total - statsDone - statsIP - statsOD);
 
   const donutSegs = [
-    {value:stats.done||0,        color:'#10b981'},
-    {value:stats.in_progress||0, color:'#6366f1'},
-    {value:stats.overdue||0,     color:'#ef4444'},
+    {value:statsDone,        color:'#10b981'},
+    {value:statsIP, color:'#6366f1'},
+    {value:statsOD,     color:'#ef4444'},
     {value:todo,                  color:'rgba(255,255,255,0.08)'},
   ].filter(s=>s.value>0);
 
@@ -54,14 +57,14 @@ export default function Dashboard() {
   }));
 
   const tickerItems = [
-    {icon:'✓', label:`${stats.done||0} Tasks Done`,    color:'#34d399'},
-    {icon:'⚡', label:`${stats.in_progress||0} Active`, color:'#818cf8'},
-    {icon:'⚠', label:`${stats.overdue||0} Overdue`,    color:'#f87171'},
+    {icon:'✓', label:`${statsDone} Tasks Done`,    color:'#34d399'},
+    {icon:'⚡', label:`${statsIP} Active`, color:'#818cf8'},
+    {icon:'⚠', label:`${statsOD} Overdue`,    color:'#f87171'},
     {icon:'◫', label:`${projStats.length} Projects`,    color:'#67e8f9'},
-    {icon:'%', label:`${total?Math.round((stats.done||0)/total*100):0}% Complete`, color:'#fcd34d'},
+    {icon:'%', label:`${total?Math.round((statsDone)/total*100):0}% Complete`, color:'#fcd34d'},
   ];
 
-  const completionRate = total ? Math.round(((stats.done||0)/total)*100) : 0;
+  const completionRate = total ? Math.round(((statsDone)/total)*100) : 0;
 
   return (
     <div>
@@ -74,9 +77,9 @@ export default function Dashboard() {
 
       <div className="grid-4 au2" style={{marginBottom:'1.5rem'}}>
         <StatCard label="Total Tasks"  value={total}              icon="📋" lineClass="stat-line-purple" sub={`${todo} to do`}/>
-        <StatCard label="In Progress"  value={stats.in_progress}  icon="⚡" color="#818cf8" lineClass="stat-line-purple" sub="active now"/>
-        <StatCard label="Completed"    value={stats.done}         icon="✓"  color="#34d399" lineClass="stat-line-green"  sub={`${completionRate}% rate`}/>
-        <StatCard label="Overdue"      value={stats.overdue}      icon="⚠"  color="#f87171" lineClass="stat-line-red"    sub="need attention"/>
+        <StatCard label="In Progress"  value={statsIP}  icon="⚡" color="#818cf8" lineClass="stat-line-purple" sub="active now"/>
+        <StatCard label="Completed"    value={statsDone}         icon="✓"  color="#34d399" lineClass="stat-line-green"  sub={`${completionRate}% rate`}/>
+        <StatCard label="Overdue"      value={statsOD}      icon="⚠"  color="#f87171" lineClass="stat-line-red"    sub="need attention"/>
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1.4fr 1fr',gap:16,marginBottom:'1.5rem'}} className="au3">
@@ -97,9 +100,9 @@ export default function Dashboard() {
                 </div>
               </div>
               {[
-                {label:'Done',       val:stats.done||0,        color:'#10b981'},
-                {label:'In Progress',val:stats.in_progress||0, color:'#6366f1'},
-                {label:'Overdue',    val:stats.overdue||0,     color:'#ef4444'},
+                {label:'Done',       val:statsDone,        color:'#10b981'},
+                {label:'In Progress',val:statsIP, color:'#6366f1'},
+                {label:'Overdue',    val:statsOD,     color:'#ef4444'},
                 {label:'To Do',      val:todo,                  color:'rgba(255,255,255,0.25)'},
               ].map(item=>(
                 <div key={item.label} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
@@ -125,9 +128,9 @@ export default function Dashboard() {
               <div style={{marginTop:'1.25rem',paddingTop:'1rem',borderTop:'1px solid var(--border)'}}>
                 <div style={{fontSize:11,color:'var(--text-3)',marginBottom:8,textTransform:'uppercase',letterSpacing:'0.07em',fontWeight:600}}>Overall Stack</div>
                 <StackedBar height={12} segments={[
-                  {label:'Done',       value:stats.done||0,        color:'#10b981'},
-                  {label:'In Progress',value:stats.in_progress||0, color:'#6366f1'},
-                  {label:'Overdue',    value:stats.overdue||0,     color:'#ef4444'},
+                  {label:'Done',       value:statsDone,        color:'#10b981'},
+                  {label:'In Progress',value:statsIP, color:'#6366f1'},
+                  {label:'Overdue',    value:statsOD,     color:'#ef4444'},
                   {label:'To Do',      value:todo,                  color:'rgba(255,255,255,0.08)'},
                 ]}/>
               </div>
@@ -148,8 +151,8 @@ export default function Dashboard() {
               </div>
               <div style={{flex:1,display:'flex',justifyContent:'flex-end'}}>
                 <DonutChart size={80} thickness={12} segments={[
-                  {value:stats.done||0, color:'#10b981'},
-                  {value:Math.max(0,total-(stats.done||0)), color:'rgba(255,255,255,0.05)'},
+                  {value:statsDone, color:'#10b981'},
+                  {value:Math.max(0,total-(statsDone)), color:'rgba(255,255,255,0.05)'},
                 ]}/>
               </div>
             </div>
@@ -211,8 +214,8 @@ export default function Dashboard() {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
               {[
                 {label:'Projects',  val:projStats.length,                                  color:'#818cf8',icon:'◫'},
-                {label:'Overdue',   val:stats.overdue||0,                                  color:'#f87171',icon:'⚠'},
-                {label:'Done',      val:stats.done||0,                                     color:'#34d399',icon:'✓'},
+                {label:'Overdue',   val:statsOD,                                  color:'#f87171',icon:'⚠'},
+                {label:'Done',      val:statsDone,                                     color:'#34d399',icon:'✓'},
                 {label:'Assignees', val:new Set(recent_tasks.map(t=>t.assignee_id)).size,  color:'#67e8f9',icon:'⊛'},
               ].map(s=>(
                 <div key={s.label} style={{padding:'12px',background:'rgba(255,255,255,0.03)',borderRadius:'var(--r-md)',border:'1px solid var(--border)',textAlign:'center'}}>

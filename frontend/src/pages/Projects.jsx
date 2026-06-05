@@ -419,7 +419,7 @@ export default function Projects() {
             ? <Empty message="No tasks match this filter." />
             : filteredTasks.map(t => {
               const assignee  = users.find(u => u.id === t.assignee_id);
-              const canEdit   = isAdmin || t.assignee_id === user.id;
+              const canEdit   = t.assignee_id === user.id; // Only assignee can edit task in project view
               const isOverdue = t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date();
               return (
                 <div key={t.id}>
@@ -481,7 +481,9 @@ export default function Projects() {
         <TaskDetailModal
           task={viewTask} users={users} projects={projects}
           onClose={() => setViewTask(null)}
-          onEdit={t => { setEditTask(t); setViewTask(null); setShowTM(true); }}
+          onEdit={viewTask.assignee_id === user.id
+            ? t => { setEditTask(t); setViewTask(null); setShowTM(true); }
+            : null}
         />
       )}
     </div>
