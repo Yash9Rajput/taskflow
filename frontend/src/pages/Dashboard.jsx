@@ -32,9 +32,9 @@ export default function Dashboard() {
 
   const { stats={}, recent_tasks=[], projects: projStats=[] } = data || {};
   const total     = parseInt(stats.total_tasks) || 0;
-  const statsDone = parseInt(statsDone)        || 0;
-  const statsIP   = parseInt(statsIP) || 0;
-  const statsOD   = parseInt(statsOD)     || 0;
+  const statsDone = parseInt(stats.done)        || 0;
+  const statsIP   = parseInt(stats.in_progress) || 0;
+  const statsOD   = parseInt(stats.overdue)     || 0;
   const todo      = Math.max(0, total - statsDone - statsIP - statsOD);
 
   const donutSegs = [
