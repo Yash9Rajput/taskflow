@@ -23,8 +23,8 @@ async function enrichTask(db, task) {
 }
 
 // GET /api/tasks
-// Members see ALL tasks in projects they belong to + tasks assigned to them
-// Admins see everything
+// ALL users (admin or member) only see tasks in their own projects
+// or tasks assigned to them / created by them
 router.get('/',
   authenticate,
   query('project_id').optional().isString(),
@@ -36,25 +36,20 @@ router.get('/',
     try {
       const db = getDb();
       const { project_id, status, priority, assignee_id, overdue } = req.query;
+      const userId = req.user.id;
 
-      let sql = 'SELECT DISTINCT t.* FROM tasks t';
-      const params = [];
-
-      if (req.user.role !== 'admin') {
-        // Members see tasks if:
-        // 1. They are the assignee
-        // 2. They created the task
-        // 3. The task belongs to a project they are a member of
-        sql += ` LEFT JOIN project_members pm ON pm.project_id = t.project_id
-                 WHERE (
-                   t.assignee_id = ?
-                   OR t.created_by = ?
-                   OR pm.user_id = ?
-                 )`;
-        params.push(req.user.id, req.user.id, req.user.id);
-      } else {
-        sql += ' WHERE 1=1';
-      }
+      // Same rule for admin and member:
+      // See tasks where they are a project member, assignee, or creator
+      let sql = `
+        SELECT DISTINCT t.* FROM tasks t
+        LEFT JOIN project_members pm ON pm.project_id = t.project_id
+        WHERE (
+          t.assignee_id = ?
+          OR t.created_by = ?
+          OR pm.user_id = ?
+        )
+      `;
+      const params = [userId, userId, userId];
 
       if (project_id)  { sql += ' AND t.project_id = ?';  params.push(project_id); }
       if (status)      { sql += ' AND t.status = ?';      params.push(status); }
@@ -79,16 +74,15 @@ router.get('/:id', authenticate, async (req, res) => {
     const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
-    // Access check: admin, assignee, creator, or project member
-    if (req.user.role !== 'admin') {
-      const isMember = task.project_id
-        ? await db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?').get(task.project_id, req.user.id)
-        : null;
-      const isAssignee = task.assignee_id === req.user.id;
-      const isCreator  = task.created_by  === req.user.id;
-      if (!isMember && !isAssignee && !isCreator) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
+    const userId = req.user.id;
+    const isMember = task.project_id
+      ? await db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?').get(task.project_id, userId)
+      : null;
+    const isAssignee = task.assignee_id === userId;
+    const isCreator  = task.created_by  === userId;
+
+    if (!isMember && !isAssignee && !isCreator) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     res.json(await enrichTask(db, task));
@@ -121,10 +115,17 @@ router.post('/',
         due_date    = null,
       } = req.body;
 
+      // If project specified, user must be a member of it
       if (project_id) {
         const project = await db.prepare('SELECT id FROM projects WHERE id = ?').get(project_id);
         if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const membership = await db.prepare(
+          'SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?'
+        ).get(project_id, req.user.id);
+        if (!membership) return res.status(403).json({ error: 'You must be a member of this project to add tasks' });
       }
+
       if (assignee_id) {
         const assignee = await db.prepare('SELECT id FROM users WHERE id = ?').get(assignee_id);
         if (!assignee) return res.status(404).json({ error: 'Assignee not found' });
@@ -160,24 +161,22 @@ router.put('/:id',
       const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
       if (!task) return res.status(404).json({ error: 'Task not found' });
 
-      const isAdmin    = req.user.role === 'admin';
-      const isAssignee = task.assignee_id === req.user.id;
-
-      // Project members can update status (their progress) but not admin-only fields
+      const userId   = req.user.id;
+      const isAdmin  = req.user.role === 'admin';
+      const isAssignee = task.assignee_id === userId;
       const isMember = task.project_id
-        ? await db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?').get(task.project_id, req.user.id)
+        ? await db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?').get(task.project_id, userId)
         : null;
 
-      if (!isAdmin && !isAssignee && !isMember) {
+      if (!isAssignee && !isMember) {
         return res.status(403).json({ error: 'Access denied' });
       }
 
       const fields = {
         title:       req.body.title       ?? task.title,
         description: req.body.description ?? task.description,
-        // Any project member can update status
         status:      req.body.status      ?? task.status,
-        // Only admin can change priority, assignee, due_date
+        // Only admin members can change priority, assignee, due_date
         priority:    isAdmin ? (req.body.priority    ?? task.priority)    : task.priority,
         assignee_id: isAdmin ? (req.body.assignee_id !== undefined ? req.body.assignee_id : task.assignee_id) : task.assignee_id,
         due_date:    isAdmin ? (req.body.due_date     !== undefined ? req.body.due_date    : task.due_date)    : task.due_date,
@@ -199,8 +198,18 @@ router.put('/:id',
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const db = getDb();
-    const task = await db.prepare('SELECT id FROM tasks WHERE id = ?').get(req.params.id);
+    const task = await db.prepare('SELECT id, created_by, project_id FROM tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    // Must be creator or project member to delete
+    const userId = req.user.id;
+    const isMember = task.project_id
+      ? await db.prepare('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?').get(task.project_id, userId)
+      : null;
+    if (task.created_by !== userId && !isMember) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     await db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
     res.json({ message: 'Task deleted' });
   } catch (err) {
