@@ -211,9 +211,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onRoleTog
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
         {isAdmin && !isMe && !isDevU && (
-          <button className="btn btn-sm" onClick={onRoleToggle} style={{ flex: 1 }}>
-            {u.role === 'admin' ? '→ Member' : '→ Admin'}
-          </button>
+          {/* Role change removed — role is set at invite time only */}
         )}
         {/* Show progress button for current user OR if viewing another member's card */}
         {Object.keys(tasksByProject).length > 0 && (
@@ -315,7 +313,7 @@ export default function Team() {
 
   const handleDeleteConfirmed = async () => {
     if (!deleteConfirm) return;
-    try { await usersAPI.delete(deleteConfirm.id); setDeleteConfirm(null); load(); }
+    try { await usersAPI.deletePermanent(deleteConfirm.id); setDeleteConfirm(null); load(); }
     catch { setDeleteConfirm(null); alert('Could not delete member.'); }
   };
 
@@ -372,7 +370,6 @@ export default function Team() {
             {filterUsers(admins).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
                 currentUser={user} isDev={isDev} isAdmin={isAdmin}
-                onRoleToggle={async () => { await usersAPI.updateRole(u.id, u.role === 'admin' ? 'member' : 'admin'); load(); }}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name })}
                 canDelete={canDelete(u)} />
             ))}
@@ -394,7 +391,6 @@ export default function Team() {
             {filterUsers(members).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
                 currentUser={user} isDev={isDev} isAdmin={isAdmin}
-                onRoleToggle={async () => { await usersAPI.updateRole(u.id, u.role === 'admin' ? 'member' : 'admin'); load(); }}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name })}
                 canDelete={canDelete(u)} />
             ))}
@@ -408,17 +404,23 @@ export default function Team() {
       {deleteConfirm && (
         <div onClick={() => setDeleteConfirm(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 400, width: '100%', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.2s' }}
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 460, width: '100%', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.2s' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 48, marginBottom: '1rem' }}>⚠️</div>
-            <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Remove from Your Projects?</div>
-            <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 4 }}><strong>{deleteConfirm.name}</strong></div>
-            <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              Are you sure? Their tasks remain but they lose access.
+            <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
+              Permanently Remove from Your Team?
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 12 }}><strong>{deleteConfirm.name}</strong></div>
+            <div style={{ padding: '12px 16px', background: 'rgba(248,113,113,0.08)', borderRadius: 'var(--r-md)', border: '1px solid rgba(248,113,113,0.2)', fontSize: 13, color: 'var(--text-2)', marginBottom: '1.5rem', lineHeight: 1.7, textAlign: 'left' }}>
+              🚫 They will be <strong>removed from all your shared projects</strong>.<br/>
+              👁️ They will <strong>no longer appear</strong> in your team page.<br/>
+              ✅ Their <strong>account stays active</strong> — they can still log in.<br/>
+              📋 Their own tasks and notes are not affected.<br/>
+              ℹ️ You can re-add them only by inviting them again.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ minWidth: 100 }}>No, Cancel</button>
-              <button className="btn btn-danger" onClick={handleDeleteConfirmed} style={{ minWidth: 100 }}>Yes, Remove</button>
+              <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ minWidth: 110 }}>No, Keep</button>
+              <button className="btn btn-danger" onClick={handleDeleteConfirmed} style={{ minWidth: 110 }}>Yes, Remove</button>
             </div>
           </div>
         </div>

@@ -411,8 +411,8 @@ export default function Projects() {
               <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Click any task to view details</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {/* ISSUE #2: Leave project button for non-creator members */}
-              {!isAdmin && (
+              {/* ISSUE #2: Leave project for any user who is NOT the project creator */}
+              {selProject && selProject.created_by !== user.id && (
                 <button className="btn btn-sm"
                   style={{ borderColor: '#f87171', color: '#f87171', background: 'rgba(248,113,113,0.08)' }}
                   onClick={() => setLeaveConfirm(selProject)}>
