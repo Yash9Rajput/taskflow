@@ -5,22 +5,31 @@ import { Avatar, Badge, ProgressBar, Spinner, Empty, DonutChart } from '../compo
 
 const DEV_EMAILS = ['ry1555530@gmail.com','rajput.kyar@gmail.com'];
 
-// Progress section — all project members can add/view progress
-function ProgressSection({ task, currentUser, projectMembers }) {
+// Progress section — all project members can add their own progress
+// All members can VIEW everyone's progress
+function ProgressSection({ task, currentUser, allUsers, isDev, projectMembers }) {
+  // Each user's progress stored under their own key
   const getMyProgress = () => {
     try { return JSON.parse(localStorage.getItem(`progress-${task.id}-${currentUser.id}`) || '[]'); } catch { return []; }
   };
   const getAllProgress = () => {
+    // Collect progress from all project members
     const all = [];
-    [...(projectMembers || []), currentUser].forEach(member => {
-      if (!member?.id) return;
+    (projectMembers || []).forEach(member => {
       try {
         const entries = JSON.parse(localStorage.getItem(`progress-${task.id}-${member.id}`) || '[]');
-        entries.forEach(e => {
-          if (!all.find(a => a.id === e.id)) all.push({ ...e, memberId: member.id, memberName: member.name });
-        });
+        entries.forEach(e => all.push({ ...e, memberId: member.id, memberName: member.name }));
       } catch {}
     });
+    // Also include current user's own progress
+    try {
+      const myEntries = JSON.parse(localStorage.getItem(`progress-${task.id}-${currentUser.id}`) || '[]');
+      myEntries.forEach(e => {
+        if (!all.find(a => a.id === e.id)) {
+          all.push({ ...e, memberId: currentUser.id, memberName: currentUser.name });
+        }
+      });
+    } catch {}
     return all.sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
@@ -28,9 +37,9 @@ function ProgressSection({ task, currentUser, projectMembers }) {
   const [allProgress, setAllProgress] = useState(getAllProgress);
   const [input,       setInput]       = useState('');
   const [expanded,    setExpanded]    = useState(false);
-  const [viewMode,    setViewMode]    = useState('mine');
+  const [viewMode,    setViewMode]    = useState('mine'); // 'mine' | 'all'
 
-  const isProjectMember = (projectMembers || []).some(m => m.id === currentUser.id) || DEV_EMAILS.includes(currentUser.email);
+  const isProjectMember = (projectMembers || []).some(m => m.id === currentUser.id) || isDev;
 
   const saveMyProgress = (entries) => {
     setMyProgress(entries);
@@ -45,55 +54,70 @@ function ProgressSection({ task, currentUser, projectMembers }) {
     setInput('');
   };
 
+  const deleteEntry = (id) => saveMyProgress(myProgress.filter(e => e.id !== id));
+
+  const totalUpdates = allProgress.length;
+
   return (
     <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(99,102,241,0.05)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.12)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          📊 Progress ({getAllProgress().length} updates)
+          📊 Progress ({totalUpdates} updates)
         </div>
         <button onClick={() => setExpanded(e => !e)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-3)' }}>
           {expanded ? '▲ Hide' : '▼ Show'}
         </button>
       </div>
+
       {expanded && (
         <>
+          {/* View toggle */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-            {['mine', 'all'].map(mode => (
-              <button key={mode} onClick={() => { setViewMode(mode); if (mode === 'all') setAllProgress(getAllProgress()); }}
-                style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, border: `1px solid ${viewMode === mode ? '#6366f1' : 'var(--border)'}`, background: viewMode === mode ? 'rgba(99,102,241,0.15)' : 'transparent', color: viewMode === mode ? '#a5b4fc' : 'var(--text-3)', cursor: 'pointer' }}>
-                {mode === 'mine' ? 'My Updates' : `Team (${getAllProgress().length})`}
-              </button>
-            ))}
+            <button onClick={() => setViewMode('mine')}
+              style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, border: `1px solid ${viewMode === 'mine' ? '#6366f1' : 'var(--border)'}`, background: viewMode === 'mine' ? 'rgba(99,102,241,0.15)' : 'transparent', color: viewMode === 'mine' ? '#a5b4fc' : 'var(--text-3)', cursor: 'pointer' }}>
+              My Updates
+            </button>
+            <button onClick={() => { setViewMode('all'); setAllProgress(getAllProgress()); }}
+              style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, border: `1px solid ${viewMode === 'all' ? '#6366f1' : 'var(--border)'}`, background: viewMode === 'all' ? 'rgba(99,102,241,0.15)' : 'transparent', color: viewMode === 'all' ? '#a5b4fc' : 'var(--text-3)', cursor: 'pointer' }}>
+              Team Updates ({totalUpdates})
+            </button>
           </div>
-          {viewMode === 'mine' && isProjectMember && (
+
+          {/* Add entry — only if user is a project member */}
+          {isProjectMember && viewMode === 'mine' && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEntry()}
-                placeholder="Add your progress update…" style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
+              <input value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addEntry()}
+                placeholder="Add your progress update…"
+                style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
               <button className="btn btn-primary" onClick={addEntry} style={{ fontSize: 12, padding: '6px 12px' }}>Add</button>
             </div>
           )}
+
+          {/* My updates */}
           {viewMode === 'mine' && (
             myProgress.length === 0
-              ? <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '8px' }}>No updates yet.</div>
+              ? <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '8px' }}>No updates yet. Add your first update!</div>
               : myProgress.map(e => (
-                <div key={e.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={e.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', flexShrink: 0, marginTop: 5 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, color: 'var(--text-2)' }}>{e.text}</div>
                     <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{e.date}</div>
                   </div>
                   {isProjectMember && (
-                    <button onClick={() => saveMyProgress(myProgress.filter(x => x.id !== e.id))}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 12, padding: 2 }}>✕</button>
+                    <button onClick={() => deleteEntry(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 12, padding: 2 }}>✕</button>
                   )}
                 </div>
               ))
           )}
+
+          {/* All team updates */}
           {viewMode === 'all' && (
             allProgress.length === 0
               ? <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '8px' }}>No team updates yet.</div>
               : allProgress.map((e, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ width: 6, height: 6, borderRadius: '50%', background: e.memberId === currentUser.id ? '#6366f1' : '#10b981', flexShrink: 0, marginTop: 5 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: e.memberId === currentUser.id ? '#a5b4fc' : '#34d399', marginBottom: 2 }}>
@@ -111,11 +135,10 @@ function ProgressSection({ task, currentUser, projectMembers }) {
   );
 }
 
-function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete, canDelete }) {
+function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onRoleToggle, onDelete, canDelete }) {
   const [expanded,     setExpanded]     = useState(false);
   const [showProgress, setShowProgress] = useState(false);
 
-  // Only show tasks where this member is the assignee (for stats)
   const uTasks  = tasks.filter(t => t.assignee_id === u.id);
   const done    = uTasks.filter(t => t.status === 'done').length;
   const inProg  = uTasks.filter(t => t.status === 'in-progress').length;
@@ -126,7 +149,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
   // Find all projects this member is in
   const memberProjects = projects.filter(p => (p.members || []).some(m => m.id === u.id));
 
-  // Group all project tasks by project (not just assigned)
+  // For each project, get all tasks in that project (not just assigned)
   const tasksByProject = {};
   memberProjects.forEach(proj => {
     const projTasks = tasks.filter(t => t.project_id === proj.id);
@@ -135,6 +158,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
     }
   });
 
+  // Get all project members for a given project (for showing team progress)
   const getProjectMembers = (projectId) => {
     const proj = projects.find(p => p.id === projectId);
     return proj?.members || [];
@@ -142,8 +166,8 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
 
   return (
     <div className="card" style={{ padding: '1.25rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem', cursor: 'pointer' }}
-        onClick={() => setExpanded(e => !e)}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1rem', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
         <Avatar user={u} size={44} />
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -179,14 +203,19 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
         {uTasks.length > 0 && (
           <DonutChart size={48} thickness={8} segments={[
             { value: done, color: '#10b981' }, { value: inProg, color: '#6366f1' },
-            { value: overdue, color: '#ef4444' },
-            { value: Math.max(0, uTasks.length - done - inProg - overdue), color: 'rgba(255,255,255,0.06)' },
+            { value: overdue, color: '#ef4444' }, { value: Math.max(0, uTasks.length - done - inProg - overdue), color: 'rgba(255,255,255,0.06)' },
           ].filter(s => s.value > 0)} />
         )}
       </div>
 
-      {/* Action buttons — NO role change button (issue #5 fix) */}
+      {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
+        {isAdmin && !isMe && !isDevU && (
+          <button className="btn btn-sm" onClick={onRoleToggle} style={{ flex: 1 }}>
+            {u.role === 'admin' ? '→ Member' : '→ Admin'}
+          </button>
+        )}
+        {/* Show progress button for current user OR if viewing another member's card */}
         {Object.keys(tasksByProject).length > 0 && (
           <button className="btn btn-sm" onClick={() => setShowProgress(s => !s)}
             style={{ flex: 1, borderColor: 'rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
@@ -198,7 +227,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
         )}
       </div>
 
-      {/* Expanded tasks grouped by project */}
+      {/* Expanded: tasks grouped by project with progress */}
       {expanded && (
         <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
           {Object.keys(tasksByProject).length === 0 ? (
@@ -210,28 +239,38 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#a5b4fc' }}>{project.name}</span>
                 <span style={{ fontSize: 10, color: 'var(--text-3)' }}>({ptasks.length} task{ptasks.length !== 1 ? 's' : ''})</span>
               </div>
-              {ptasks.map(t => (
-                <div key={t.id} style={{ paddingLeft: 14, marginBottom: showProgress ? 12 : 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.status === 'done' ? '#10b981' : t.status === 'in-progress' ? '#6366f1' : '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ flex: 1, color: 'var(--text-2)' }}>{t.title}</span>
-                    {t.assignee?.name && (
-                      <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '1px 6px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}>
-                        👤 {t.assignee.name.split(' ')[0]}
-                      </span>
-                    )}
-                    <Badge priority={t.priority} />
-                    {t.due_date && (
-                      <span style={{ fontSize: 10, color: new Date(t.due_date) < new Date() && t.status !== 'done' ? '#f87171' : 'var(--text-3)' }}>
-                        {t.due_date}
-                      </span>
+              {ptasks.map(t => {
+                const assignee = t.assignee_id ? { id: t.assignee_id, name: t.assignee?.name || '?' } : null;
+                return (
+                  <div key={t.id} style={{ paddingLeft: 14, marginBottom: showProgress ? 12 : 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.status === 'done' ? '#10b981' : t.status === 'in-progress' ? '#6366f1' : '#f59e0b', flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: 'var(--text-2)' }}>{t.title}</span>
+                      {assignee && (
+                        <span style={{ fontSize: 10, color: 'var(--text-3)', padding: '1px 6px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}>
+                          👤 {assignee.name?.split(' ')[0]}
+                        </span>
+                      )}
+                      <Badge priority={t.priority} />
+                      {t.due_date && (
+                        <span style={{ fontSize: 10, color: new Date(t.due_date) < new Date() && t.status !== 'done' ? '#f87171' : 'var(--text-3)' }}>
+                          {t.due_date}
+                        </span>
+                      )}
+                    </div>
+                    {/* Progress section — visible to current user for ALL project tasks */}
+                    {showProgress && (
+                      <ProgressSection
+                        task={t}
+                        currentUser={currentUser}
+                        allUsers={[u]}
+                        isDev={isDev}
+                        projectMembers={getProjectMembers(projId)}
+                      />
                     )}
                   </div>
-                  {showProgress && (
-                    <ProgressSection task={t} currentUser={currentUser} projectMembers={getProjectMembers(projId)} />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
@@ -280,35 +319,8 @@ export default function Team() {
     catch { setDeleteConfirm(null); alert('Could not delete member.'); }
   };
 
-  // ISSUE #1 FIX: Only show users who share at least one project with the current user
-  // OR users invited by the current admin
-  // For developer accounts: show all users
-  const getVisibleUsers = () => {
-    if (isDev) return users; // Developer sees everyone
-
-    // Get all project IDs the current user is part of
-    const myProjectIds = new Set(
-      projects
-        .filter(p => (p.members || []).some(m => m.id === user.id))
-        .map(p => p.id)
-    );
-
-    // Get all user IDs who share a project with current user
-    const visibleUserIds = new Set([user.id]); // always include self
-    projects.forEach(p => {
-      if (myProjectIds.has(p.id)) {
-        (p.members || []).forEach(m => visibleUserIds.add(m.id));
-      }
-    });
-
-    // If admin: also include users they personally created (invited)
-    // We show users who are in the visible set
-    return users.filter(u => visibleUserIds.has(u.id));
-  };
-
-  const visibleUsers = getVisibleUsers();
-  const admins  = visibleUsers.filter(u => u.role === 'admin');
-  const members = visibleUsers.filter(u => u.role === 'member');
+  const admins  = users.filter(u => u.role === 'admin');
+  const members = users.filter(u => u.role === 'member');
 
   const filterUsers = (list) => list.filter(u =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
@@ -321,7 +333,7 @@ export default function Team() {
       <div className="section-head au">
         <div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>Team</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-2)' }}>{visibleUsers.length} member{visibleUsers.length !== 1 ? 's' : ''} in your teams</p>
+          <p style={{ fontSize: 14, color: 'var(--text-2)' }}>{users.length} members · {admins.length} admins</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -333,9 +345,9 @@ export default function Team() {
       {/* Summary stats */}
       <div className="grid-3 au1" style={{ marginBottom: '1.5rem' }}>
         {[
-          { label: 'Team Members', val: visibleUsers.length, color: '#818cf8', icon: '👥' },
-          { label: 'Admins',       val: admins.length,        color: '#c4b5fd', icon: '👑' },
-          { label: 'Members',      val: members.length,       color: '#67e8f9', icon: '👤' },
+          { label: 'Total Members', val: users.length,   color: '#818cf8', icon: '👥' },
+          { label: 'Admins',        val: admins.length,  color: '#c4b5fd', icon: '👑' },
+          { label: 'Members',       val: members.length, color: '#67e8f9', icon: '👤' },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'var(--grad)' }} />
@@ -346,17 +358,7 @@ export default function Team() {
         ))}
       </div>
 
-      {visibleUsers.length === 0 && !search && (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-3)' }}>
-          <div style={{ fontSize: 48, marginBottom: '1rem' }}>👥</div>
-          <div style={{ fontSize: 16, marginBottom: 8 }}>No team members yet</div>
-          <div style={{ fontSize: 13 }}>
-            {isAdmin ? 'Invite members to your projects to see them here.' : 'You will see team members once you are added to a project.'}
-          </div>
-        </div>
-      )}
-
-      {/* Admins group */}
+      {/* Admins */}
       {filterUsers(admins).length > 0 && (
         <div className="au2" style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
@@ -370,6 +372,7 @@ export default function Team() {
             {filterUsers(admins).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
                 currentUser={user} isDev={isDev} isAdmin={isAdmin}
+                onRoleToggle={async () => { await usersAPI.updateRole(u.id, u.role === 'admin' ? 'member' : 'admin'); load(); }}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name })}
                 canDelete={canDelete(u)} />
             ))}
@@ -377,7 +380,7 @@ export default function Team() {
         </div>
       )}
 
-      {/* Members group */}
+      {/* Members */}
       {filterUsers(members).length > 0 && (
         <div className="au3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
@@ -391,6 +394,7 @@ export default function Team() {
             {filterUsers(members).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
                 currentUser={user} isDev={isDev} isAdmin={isAdmin}
+                onRoleToggle={async () => { await usersAPI.updateRole(u.id, u.role === 'admin' ? 'member' : 'admin'); load(); }}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name })}
                 canDelete={canDelete(u)} />
             ))}
@@ -398,9 +402,7 @@ export default function Team() {
         </div>
       )}
 
-      {filterUsers(visibleUsers).length === 0 && search && (
-        <Empty message="No members match your search." />
-      )}
+      {filterUsers(users).length === 0 && <Empty message={search ? "No members match your search." : "No team members yet."} />}
 
       {/* Delete confirm */}
       {deleteConfirm && (
@@ -409,10 +411,10 @@ export default function Team() {
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 400, width: '100%', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.2s' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 48, marginBottom: '1rem' }}>⚠️</div>
-            <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Remove Member?</div>
+            <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Remove from Your Projects?</div>
             <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 4 }}><strong>{deleteConfirm.name}</strong></div>
             <div style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              They will lose access to the platform.
+              Are you sure? Their tasks remain but they lose access.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button className="btn" onClick={() => setDeleteConfirm(null)} style={{ minWidth: 100 }}>No, Cancel</button>

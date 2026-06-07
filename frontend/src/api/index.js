@@ -36,6 +36,7 @@ export const usersAPI = {
   updateRole: (id, role)   => api.patch(`/users/${id}/role`, { role }),
   invite:     (data)       => api.post('/auth/invite', data),
   delete:     (id)         => api.delete(`/users/${id}`),
+  leaveProject:(userId, projectId)   => api.delete(`/users/${userId}/leave/${projectId}`),
 };
 
 // Projects

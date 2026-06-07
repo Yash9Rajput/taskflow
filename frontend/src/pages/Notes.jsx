@@ -13,11 +13,25 @@ const saveNotes = (userId, n) => localStorage.setItem(getStorageKey(userId), JSO
 const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 function NoteDetail({ note, onBack, onEdit, onDelete }) {
-  const share = () => {
+  const share = async () => {
+    const shareText = `${note.title}\n\n${note.body}`;
     if (navigator.share) {
-      navigator.share({ title: note.title, text: note.body }).catch(() => {});
+      const shareData = { title: note.title, text: shareText };
+      // If there's an image attachment, try to share it as a file
+      if (note.imageUrl && note.imageUrl.startsWith('data:')) {
+        try {
+          const res  = await fetch(note.imageUrl);
+          const blob = await res.blob();
+          const file = new File([blob], note.attachmentName || 'attachment', { type: blob.type });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ ...shareData, files: [file] });
+            return;
+          }
+        } catch {}
+      }
+      navigator.share(shareData).catch(() => {});
     } else {
-      navigator.clipboard.writeText(`${note.title}\n\n${note.body}`);
+      await navigator.clipboard.writeText(shareText);
       alert('Note copied to clipboard!');
     }
   };
@@ -48,10 +62,50 @@ function NoteDetail({ note, onBack, onEdit, onDelete }) {
         </div>
         {note.imageUrl && (
           <div style={{ marginBottom: '1.5rem' }}>
-            {note.imageUrl.startsWith('data:image')
-              ? <img src={note.imageUrl} alt="attachment" style={{ width: '100%', borderRadius: 'var(--r-md)', maxHeight: 300, objectFit: 'cover' }} />
-              : <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', fontSize: 13, color: '#a5b4fc' }}>📎 Attachment</div>
-            }
+            {note.imageUrl.startsWith('data:image') ? (
+              <div>
+                <img src={note.imageUrl} alt="attachment"
+                  style={{ width: '100%', borderRadius: 'var(--r-md)', maxHeight: 350, objectFit: 'cover', marginBottom: 8 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <a href={note.imageUrl} download={note.attachmentName || 'attachment'}
+                    style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 12, textDecoration: 'none', cursor: 'pointer' }}>
+                    ⬇️ Download
+                  </a>
+                  <button onClick={() => { const w = window.open(); w.document.write('<img src="' + note.imageUrl + '" style="max-width:100%">'); w.document.title = note.title; }}
+                    style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}>
+                    🔍 Preview
+                  </button>
+                </div>
+              </div>
+            ) : note.imageUrl.startsWith('data:application/pdf') ? (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ padding: '16px', background: 'rgba(255,255,255,0.04)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', marginBottom: 8 }}>
+                  <div style={{ fontSize: 40, marginBottom: 8, textAlign: 'center' }}>📄</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-2)', textAlign: 'center' }}>{note.attachmentName || 'PDF Document'}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <a href={note.imageUrl} download={note.attachmentName || 'document.pdf'}
+                    style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 12, textDecoration: 'none' }}>
+                    ⬇️ Download PDF
+                  </a>
+                  <button onClick={() => { const w = window.open(); w.document.write('<embed src="' + note.imageUrl + '" width="100%" height="100%" type="application/pdf">'); }}
+                    style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}>
+                    🔍 Preview PDF
+                  </button>
+                </div>
+              </div>
+            ) : note.imageUrl ? (
+              <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 28 }}>📎</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>{note.attachmentName || 'Attachment'}</div>
+                </div>
+                <a href={note.imageUrl} download={note.attachmentName || 'attachment'}
+                  style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 12, textDecoration: 'none' }}>
+                  ⬇️ Download
+                </a>
+              </div>
+            ) : null}
           </div>
         )}
         <div style={{ fontSize: 15, lineHeight: 1.9, color: 'var(--text-2)', whiteSpace: 'pre-wrap' }}>{note.body}</div>
@@ -68,7 +122,10 @@ function NoteForm({ initial, onSave, onCancel, userName }) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => set('imageUrl', ev.target.result);
+    reader.onload = (ev) => {
+      set('imageUrl', ev.target.result);
+      set('attachmentName', file.name);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -79,6 +136,7 @@ function NoteForm({ initial, onSave, onCancel, userName }) {
       author: userName || 'Me',
       date: new Date().toISOString().slice(0, 10),
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      attachmentName: form.attachmentName || '',
     });
   };
 

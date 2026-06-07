@@ -19,7 +19,7 @@ const selectStyle = {
 };
 
 /* ─── Inline Project Form (full page like Notes) ─── */
-function ProjectForm({ initial, users, onSave, onCancel }) {
+function ProjectForm({ initial, users, currentUserId, onSave, onCancel }) {
   const [form, setForm] = useState({
     name:        initial?.name        || '',
     description: initial?.description || '',
@@ -50,7 +50,11 @@ function ProjectForm({ initial, users, onSave, onCancel }) {
     } finally { setSaving(false); }
   };
 
-  const filteredUsers = users.filter(u =>
+  // ISSUE #3 FIX: Only show users who already share a project with current user
+  // (i.e. users returned from /api/users which is already scoped)
+  // Filter out current user from member picker (they're auto-added as creator)
+  const eligibleUsers = users.filter(u => u.id !== currentUserId);
+  const filteredUsers = eligibleUsers.filter(u =>
     !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -152,6 +156,7 @@ export default function Projects() {
   const [viewTask,  setViewTask]  = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [taskFilter,    setTaskFilter]    = useState('all');
+  const [leaveConfirm,  setLeaveConfirm]  = useState(null); // Issue #2: leave project
 
   const load = () => {
     setLoading(true);
@@ -176,6 +181,19 @@ export default function Projects() {
 
   const canDeleteProject = (p) => isDev || (isAdmin && p.created_by === user.id);
   const canDeleteTask    = (t) => isDev || (isAdmin && t.created_by === user.id);
+
+  const handleLeaveProject = async () => {
+    if (!leaveConfirm) return;
+    try {
+      await usersAPI.leaveProject(user.id, leaveConfirm.id);
+      setSelected(null);
+      setLeaveConfirm(null);
+      load();
+    } catch (e) {
+      console.error('Leave project error:', e);
+      setLeaveConfirm(null);
+    }
+  };
 
   const handleDeleteConfirmed = async () => {
     if (!deleteConfirm) return;
@@ -208,6 +226,7 @@ export default function Projects() {
   if (view === 'new') return (
     <ProjectForm
       users={users}
+      currentUserId={user.id}
       onSave={() => { load(); setView('list'); }}
       onCancel={() => setView('list')}
     />
@@ -217,6 +236,7 @@ export default function Projects() {
     <ProjectForm
       initial={editProj}
       users={users}
+      currentUserId={user.id}
       onSave={() => { load(); setView('list'); setEditProj(null); }}
       onCancel={() => { setView('list'); setEditProj(null); }}
     />
@@ -390,12 +410,22 @@ export default function Projects() {
               <div className="section-title">Tasks</div>
               <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Click any task to view details</div>
             </div>
-            {isAdmin && (
-              <button className="btn btn-primary btn-sm"
-                onClick={() => { setEditTask(null); setShowTM(true); }}>
-                + Add Task
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {/* ISSUE #2: Leave project button for non-creator members */}
+              {!isAdmin && (
+                <button className="btn btn-sm"
+                  style={{ borderColor: '#f87171', color: '#f87171', background: 'rgba(248,113,113,0.08)' }}
+                  onClick={() => setLeaveConfirm(selProject)}>
+                  🚪 Leave Project
+                </button>
+              )}
+              {isAdmin && (
+                <button className="btn btn-primary btn-sm"
+                  onClick={() => { setEditTask(null); setShowTM(true); }}>
+                  + Add Task
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Task filter tabs */}
@@ -419,7 +449,7 @@ export default function Projects() {
             ? <Empty message="No tasks match this filter." />
             : filteredTasks.map(t => {
               const assignee  = users.find(u => u.id === t.assignee_id);
-              const canEdit   = t.assignee_id === user.id; // Only assignee can edit task in project view
+              const canEdit   = isAdmin || t.assignee_id === user.id;
               const isOverdue = t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date();
               return (
                 <div key={t.id}>
@@ -485,6 +515,29 @@ export default function Projects() {
             ? t => { setEditTask(t); setViewTask(null); setShowTM(true); }
             : null}
         />
+      )}
+
+      {/* Issue #2: Leave project confirmation */}
+      {leaveConfirm && (
+        <div onClick={() => setLeaveConfirm(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 440, width: '100%', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.2s' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 48, marginBottom: '1rem' }}>🚪</div>
+            <div style={{ fontFamily: 'var(--font-d)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Leave this project?</div>
+            <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 12 }}><strong>{leaveConfirm.name}</strong></div>
+            <div style={{ padding: '12px 16px', background: 'rgba(248,113,113,0.08)', borderRadius: 'var(--r-md)', border: '1px solid rgba(248,113,113,0.2)', fontSize: 13, color: 'var(--text-2)', marginBottom: '1.5rem', lineHeight: 1.7, textAlign: 'left' }}>
+              ⚠️ You will be <strong>removed from this project</strong>.<br/>
+              📋 This project and its tasks will disappear from your view.<br/>
+              🔒 Only an admin can add you back.<br/>
+              👤 Your account and other projects are not affected.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setLeaveConfirm(null)} style={{ minWidth: 110 }}>No, Stay</button>
+              <button className="btn btn-danger" onClick={handleLeaveProject} style={{ minWidth: 110 }}>Yes, Leave</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
