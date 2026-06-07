@@ -32,8 +32,10 @@ router.post('/signup',
 
       const hashed = bcrypt.hashSync(password, 10);
       const id = genId();
-      await db.prepare('INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)')
-        .run(id, name, email, hashed, role);
+      // await db.prepare('INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)')
+      //   .run(id, name, email, hashed, role);
+      const invitedBy = req.user?.id || null;
+      await db.prepare('INSERT INTO users (id, name, email, password, role, invited_by) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, email, hashed, role, invitedBy);
 
       const token = jwt.sign({ userId: id }, process.env.JWT_SECRET, { expiresIn: '7d' });
       res.status(201).json({ token, user: { id, name, email, role } });
@@ -92,8 +94,10 @@ router.post('/invite',
 
       const hashed = bcrypt.hashSync(password, 10);
       const id = genId();
-      await db.prepare('INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)')
-        .run(id, name, email, hashed, role);
+      // await db.prepare('INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)')
+      //   .run(id, name, email, hashed, role);
+      const invitedBy = req.user?.id || null;
+      await db.prepare('INSERT INTO users (id, name, email, password, role, invited_by) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, email, hashed, role, invitedBy);
 
       res.status(201).json({ user: { id, name, email, role } });
     } catch (err) {
