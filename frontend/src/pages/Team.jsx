@@ -135,7 +135,7 @@ function ProgressSection({ task, currentUser, allUsers, isDev, projectMembers })
   );
 }
 
-function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onRoleToggle, onDelete, canDelete }) {
+function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete, canDelete }) {
   const [expanded,     setExpanded]     = useState(false);
   const [showProgress, setShowProgress] = useState(false);
 
@@ -210,9 +210,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onRoleTog
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-        {isAdmin && !isMe && !isDevU && (
-          {/* Role change removed — role is set at invite time only */}
-        )}
+        {/* Role change removed — set at invite time only */}
         {/* Show progress button for current user OR if viewing another member's card */}
         {Object.keys(tasksByProject).length > 0 && (
           <button className="btn btn-sm" onClick={() => setShowProgress(s => !s)}
@@ -313,7 +311,16 @@ export default function Team() {
 
   const handleDeleteConfirmed = async () => {
     if (!deleteConfirm) return;
-    try { await usersAPI.deletePermanent(deleteConfirm.id); setDeleteConfirm(null); load(); }
+    try {
+      // deletePermanent sends ?permanent=true; fall back to delete if method missing
+      if (typeof usersAPI.deletePermanent === 'function') {
+        await usersAPI.deletePermanent(deleteConfirm.id);
+      } else {
+        await usersAPI.delete(deleteConfirm.id);
+      }
+      setDeleteConfirm(null);
+      load();
+    }
     catch { setDeleteConfirm(null); alert('Could not delete member.'); }
   };
 
