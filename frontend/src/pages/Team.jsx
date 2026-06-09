@@ -280,14 +280,28 @@ export default function Team() {
 
       {/* Invite success banner */}
       {inviteSuccess && (
-        <div style={{ padding: '1rem 1.25rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 'var(--r-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-start', gap: 12 }} className="au">
-          <span style={{ fontSize: 20 }}>✅</span>
+        <div style={{ padding: '1rem 1.25rem', background: inviteSuccess.email?.sent ? 'rgba(16,185,129,0.1)' : 'rgba(99,102,241,0.1)', border: `1px solid ${inviteSuccess.email?.sent ? 'rgba(16,185,129,0.25)' : 'rgba(99,102,241,0.25)'}`, borderRadius: 'var(--r-md)', marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-start', gap: 12 }} className="au">
+          <span style={{ fontSize: 20 }}>{inviteSuccess.email?.sent ? '✅' : '👤'}</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, color: '#34d399', fontSize: 14, marginBottom: 4 }}>{inviteSuccess.message}</div>
-            {inviteSuccess.email?.sent
-              ? <div style={{ fontSize: 12, color: 'var(--text-3)' }}>📧 Invite email sent! ({inviteSuccess.email.remaining} emails remaining today for this address)</div>
-              : <div style={{ fontSize: 12, color: '#fbbf24' }}>⚠️ Email not sent: {inviteSuccess.email?.reason}</div>
-            }
+            <div style={{ fontWeight: 600, color: inviteSuccess.email?.sent ? '#34d399' : '#a5b4fc', fontSize: 14, marginBottom: 6 }}>
+              {inviteSuccess.message}
+            </div>
+            {inviteSuccess.email?.sent ? (
+              <div style={{ fontSize: 12, color: '#34d399', background: 'rgba(16,185,129,0.08)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(16,185,129,0.2)' }}>
+                📧 Invitation email sent successfully to <strong>{inviteSuccess.user?.email}</strong><br/>
+                <span style={{ color: 'var(--text-3)' }}>({inviteSuccess.email.remaining} email{inviteSuccess.email.remaining !== 1 ? 's' : ''} remaining today for this address)</span>
+              </div>
+            ) : inviteSuccess.email?.reason ? (
+              <div style={{ fontSize: 12, color: '#fbbf24', background: 'rgba(251,191,36,0.08)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(251,191,36,0.2)', lineHeight: 1.6 }}>
+                ⚠️ User added to team but email not sent.<br/>
+                <strong>Reason:</strong> {inviteSuccess.email.reason}<br/>
+                <span style={{ color: 'var(--text-3)' }}>They can still log in with the credentials you provided.</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                👤 User added to your team. Share login credentials manually.
+              </div>
+            )}
           </div>
           <button onClick={() => setInviteSuccess(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 16 }}>✕</button>
         </div>

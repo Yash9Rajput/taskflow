@@ -187,13 +187,15 @@ router.post('/invite',
   authenticate, requireAdmin,
   body('name').trim().notEmpty(),
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').optional({ nullable: true, checkFalsy: true }).isLength({ min: 6 }),
   body('role').optional().isIn(['admin', 'member']),
-  body('sendEmail').optional().isBoolean(),
+  body('sendEmail').optional(),
   validate,
   async (req, res) => {
     try {
-      const { name, email, password, role = 'member', sendEmail = true } = req.body;
+      const { name, email, password, role = 'member' } = req.body;
+      // Accept boolean true/false OR string 'true'/'false' from frontend
+      const sendEmail = req.body.sendEmail === false || req.body.sendEmail === 'false' ? false : true;
       const db      = getDb();
       const inviter = req.user;
 
@@ -245,6 +247,9 @@ router.post('/invite',
           emailResult = { sent: false, reason: `Daily email limit reached (5/day per address). Try again tomorrow.` };
         } else {
           const transporter = getTransporter();
+          console.log('[MAIL] Attempting to send invite email to:', email);
+          console.log('[MAIL] MAIL_USER configured:', !!process.env.MAIL_USER);
+          console.log('[MAIL] MAIL_PASS configured:', !!process.env.MAIL_PASS);
           if (transporter) {
             try {
               const appUrl = process.env.FRONTEND_URL || 'https://taskflow-yash9rajputs-projects.vercel.app';
@@ -259,9 +264,11 @@ router.post('/invite',
                 appUrl,
               });
               recordEmailSent(inviter.id, email);
+              console.log('[MAIL] ✅ Email sent successfully to:', email);
               emailResult = { sent: true, remaining: remaining - 1 };
             } catch (mailErr) {
-              console.error('Mail send error:', mailErr.message);
+              console.error('[MAIL] Send error:', mailErr.message);
+              console.error('[MAIL] Full error:', mailErr);
               emailResult = { sent: false, reason: 'Mail delivery failed: ' + mailErr.message };
             }
           } else {
