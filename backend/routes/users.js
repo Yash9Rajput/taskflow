@@ -5,19 +5,13 @@ const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 
 const router = express.Router();
-const DEV_EMAILS = ['ry1555530@gmail.com', 'rajput.kyar@gmail.com'];
 
 // GET /api/users — only users visible to current user
 router.get('/', authenticate, async (req, res) => {
   try {
     const db     = getDb();
     const userId = req.user.id;
-    const isDev  = DEV_EMAILS.includes(req.user.email);
-
-    if (isDev) {
-      const users = await db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY name').all();
-      return res.json(users);
-    }
+    // All users follow same visibility rules — no special dev privileges
 
     // Users sharing a project with current user
     const sharedUsers = await db.prepare(`
@@ -86,9 +80,8 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
     const target = await db.prepare('SELECT id, email, role FROM users WHERE id = ?').get(targetId);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
-    if (DEV_EMAILS.includes(target.email)) {
-      return res.status(403).json({ error: 'Cannot remove developer accounts' });
-    }
+    // No special protection for dev accounts — anyone can remove anyone from their team
+    // Dev accounts follow same rules as regular admins
 
     // Remove from ALL projects shared with current user
     const sharedProjects = await db.prepare(`

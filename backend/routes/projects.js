@@ -153,13 +153,9 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
     const project = await db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    // Only creator or dev can delete
+    // Only the project creator can delete it — same rule for everyone
     if (project.created_by !== req.user.id) {
-      const DEV_CHECK = await db.prepare('SELECT email FROM users WHERE id = ?').get(req.user.id);
-      const DEV_EMAILS = ['ry1555530@gmail.com', 'rajput.kyar@gmail.com'];
-      if (!DEV_EMAILS.includes(DEV_CHECK?.email)) {
-        return res.status(403).json({ error: 'Only the project creator can delete it' });
-      }
+      return res.status(403).json({ error: 'Only the project creator can delete it' });
     }
 
     await db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);

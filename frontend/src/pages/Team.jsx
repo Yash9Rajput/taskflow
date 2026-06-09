@@ -3,7 +3,6 @@ import { usersAPI, tasksAPI, projectsAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge, ProgressBar, Spinner, Empty, DonutChart } from '../components/UI';
 
-const DEV_EMAILS = ['ry1555530@gmail.com', 'rajput.kyar@gmail.com'];
 
 function ProgressSection({ task, currentUser, projectMembers }) {
   const getMyProgress = () => {
@@ -27,7 +26,7 @@ function ProgressSection({ task, currentUser, projectMembers }) {
   const [expanded,    setExpanded]    = useState(false);
   const [viewMode,    setViewMode]    = useState('mine');
 
-  const isProjectMember = (projectMembers || []).some(m => m.id === currentUser.id) || DEV_EMAILS.includes(currentUser.email);
+  const isProjectMember = (projectMembers || []).some(m => m.id === currentUser.id);
 
   const saveMyProgress = (entries) => {
     setMyProgress(entries);
@@ -99,7 +98,7 @@ function ProgressSection({ task, currentUser, projectMembers }) {
   );
 }
 
-function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete, canDelete }) {
+function MemberCard({ u, tasks, projects, currentUser, isAdmin, onDelete, canDelete }) {
   const [expanded,     setExpanded]     = useState(false);
   const [showProgress, setShowProgress] = useState(false);
 
@@ -108,7 +107,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
   const inProg  = uTasks.filter(t => t.status === 'in-progress').length;
   const overdue = uTasks.filter(t => t.status !== 'done' && t.due_date && new Date(t.due_date) < new Date()).length;
   const isMe    = u.id === currentUser.id;
-  const isDevU  = DEV_EMAILS.includes(u.email);
+
 
   const memberProjects = projects.filter(p => (p.members || []).some(m => m.id === u.id));
   const tasksByProject = {};
@@ -126,7 +125,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-d)', fontSize: 15, fontWeight: 600 }}>{u.name}</span>
             {isMe   && <span style={{ fontSize: 10, padding: '1px 6px', background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderRadius: 999, border: '1px solid rgba(99,102,241,0.2)' }}>You</span>}
-            {isDevU && <span style={{ fontSize: 10, padding: '1px 6px', background: 'rgba(16,185,129,0.15)', color: '#34d399', borderRadius: 999, border: '1px solid rgba(16,185,129,0.2)' }}>Developer</span>}
+
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{u.email}</div>
         </div>
@@ -206,7 +205,7 @@ function MemberCard({ u, tasks, projects, currentUser, isDev, isAdmin, onDelete,
 export default function Team() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const isDev   = DEV_EMAILS.includes(user?.email);
+
 
   const [users,    setUsers]    = useState([]);
   const [tasks,    setTasks]    = useState([]);
@@ -238,9 +237,8 @@ export default function Team() {
   };
 
   const canDelete = (u) => {
-    if (u.id === user.id) return false;
-    if (DEV_EMAILS.includes(u.email)) return false;
-    return isDev || isAdmin;
+    if (u.id === user.id) return false;  // cannot remove yourself
+    return isAdmin;                       // any admin can remove others
   };
 
   // ISSUE #1 FIX: handleDeleteConfirmed now works correctly —
@@ -332,7 +330,7 @@ export default function Team() {
           <div className="grid-2">
             {filterUsers(admins).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
-                currentUser={user} isDev={isDev} isAdmin={isAdmin}
+                currentUser={user} isAdmin={isAdmin}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name, role: u.role })}
                 canDelete={canDelete(u)} />
             ))}
@@ -353,7 +351,7 @@ export default function Team() {
           <div className="grid-2">
             {filterUsers(members).map(u => (
               <MemberCard key={u.id} u={u} tasks={tasks} projects={projects}
-                currentUser={user} isDev={isDev} isAdmin={isAdmin}
+                currentUser={user} isAdmin={isAdmin}
                 onDelete={() => setDeleteConfirm({ id: u.id, name: u.name, role: u.role })}
                 canDelete={canDelete(u)} />
             ))}

@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar, Badge, ProgressBar, Spinner, Empty, taskStatusDisplay } from '../components/UI';
 import TaskDetailModal from '../components/TaskDetailModal';
 
-const DEV_EMAILS = ['ry1555530@gmail.com', 'rajput.kyar@gmail.com'];
 
 const labelStyle = {
   display: 'block', fontSize: 11, fontWeight: 700,
@@ -141,7 +140,6 @@ function ProjectForm({ initial, users, currentUserId, onSave, onCancel }) {
 export default function Projects() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const isDev   = DEV_EMAILS.includes(user?.email);
 
   const [projects,  setProjects]  = useState([]);
   const [tasks,     setTasks]     = useState([]);
@@ -179,8 +177,8 @@ export default function Projects() {
     return t.status === taskFilter;
   });
 
-  const canDeleteProject = (p) => isDev || (isAdmin && p.created_by === user.id);
-  const canDeleteTask    = (t) => isDev || (isAdmin && t.created_by === user.id);
+  const canDeleteProject = (p) => isAdmin && p.created_by === user.id;
+  const canDeleteTask    = (t) => isAdmin && t.created_by === user.id;
 
   const handleLeaveProject = async () => {
     if (!leaveConfirm) return;
