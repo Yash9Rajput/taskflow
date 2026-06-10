@@ -2,7 +2,7 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const { body } = require('express-validator');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 const { getDb }                    = require('../db/database');
 const { validate }                 = require('../middleware/validate');
@@ -16,13 +16,10 @@ function genId() {
     : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// ── Email transporter (uses Gmail via env vars) ──────────────────────────────
-function getTransporter() {
-  if (!process.env.MAIL_USER || !process.env.MAIL_PASS) return null;
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
-  });
+// ── Resend email client (works on Render free tier — uses HTTPS not SMTP) ──
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
 // ISSUE #3: Rate limit — max 5 emails per day per target email per sender
@@ -42,7 +39,7 @@ function recordEmailSent(senderId, targetEmail) {
   emailRateLimit.set(key, (emailRateLimit.get(key) || 0) + 1);
 }
 
-async function sendInviteEmail(transporter, { toEmail, toName, fromName, fromEmail, teamName, password, role, appUrl }) {
+async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName, password, role, appUrl }) {
   const roleLabel = role === 'admin' ? '👑 Admin' : '👤 Member';
   const html = `
 <!DOCTYPE html>
@@ -120,11 +117,15 @@ async function sendInviteEmail(transporter, { toEmail, toName, fromName, fromEma
 </body>
 </html>`;
 
-  await transporter.sendMail({
-    from:    `"TaskFlow Invite" <${process.env.MAIL_USER}>`,
-    replyTo: `"${fromName}" <${fromEmail}>`,   // replies go to the actual admin
-    to:      toEmail,
-    subject: `🚀 ${fromName} invited you to join TaskFlow`,
+  // Use Resend API — works over HTTPS, no SMTP port blocking
+  const resend = getResendClient();
+  if (!resend) throw new Error('RESEND_API_KEY not configured');
+
+  await resend.emails.send({
+    from:     'TaskFlow Invite <onboarding@resend.dev>',  // use resend dev domain until custom domain set
+    reply_to: `${fromName} <${fromEmail}>`,
+    to:       [toEmail],
+    subject:  `🚀 ${fromName} invited you to join TaskFlow`,
     html,
   });
 }
@@ -246,14 +247,12 @@ router.post('/invite',
         if (!allowed) {
           emailResult = { sent: false, reason: `Daily email limit reached (5/day per address). Try again tomorrow.` };
         } else {
-          const transporter = getTransporter();
           console.log('[MAIL] Attempting to send invite email to:', email);
-          console.log('[MAIL] MAIL_USER configured:', !!process.env.MAIL_USER);
-          console.log('[MAIL] MAIL_PASS configured:', !!process.env.MAIL_PASS);
-          if (transporter) {
+          console.log('[MAIL] RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY);
+          if (getResendClient()) {
             try {
               const appUrl = process.env.FRONTEND_URL || 'https://taskflow-yash9rajputs-projects.vercel.app';
-              await sendInviteEmail(transporter, {
+              await sendInviteEmail({
                 toEmail:   email,
                 toName:    isReInvite ? existingUser.name : name,
                 fromName:  inviter.name,
@@ -272,7 +271,7 @@ router.post('/invite',
               emailResult = { sent: false, reason: 'Mail delivery failed: ' + mailErr.message };
             }
           } else {
-            emailResult = { sent: false, reason: 'MAIL_USER/MAIL_PASS not configured in environment variables' };
+            emailResult = { sent: false, reason: 'RESEND_API_KEY not configured. Add it in Render environment variables.' };
           }
         }
       }
@@ -312,13 +311,12 @@ router.post('/send-invite-email', authenticate, requireAdmin,
       const target = await db.prepare('SELECT id, name, email, role FROM users WHERE email = ?').get(email);
       if (!target) return res.status(404).json({ error: 'User not found' });
 
-      const transporter = getTransporter();
-      if (!transporter) {
-        return res.status(503).json({ error: 'Email not configured. Set MAIL_USER and MAIL_PASS environment variables.' });
+      if (!getResendClient()) {
+        return res.status(503).json({ error: 'Email not configured. Add RESEND_API_KEY in Render environment variables.' });
       }
 
       const appUrl = process.env.FRONTEND_URL || 'https://taskflow-yash9rajputs-projects.vercel.app';
-      await sendInviteEmail(transporter, {
+      await sendInviteEmail({
         toEmail:   target.email,
         toName:    target.name,
         fromName:  inviter.name,
