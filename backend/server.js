@@ -6,8 +6,23 @@ const { initDb } = require('./db/database');
 
 const app = express();
 
+// Allow all frontend URLs — Netlify, Vercel old, Vercel new, localhost
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'https://taskflowteams.netlify.app',
+  'https://taskflow-yash9rajputs-projects.vercel.app',
+  'https://taskflowteams-yash9rajputs-projects.vercel.app',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    console.warn('CORS blocked for origin:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
