@@ -80,76 +80,98 @@ function recordEmailSent(senderId, targetEmail) {
 
 async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName, password, role, appUrl }) {
   const roleLabel = role === 'admin' ? '👑 Admin' : '👤 Member';
+  // Show actual password for new users, guidance for existing users
+  const passwordDisplay = password && password !== '(your existing password)'
+    ? password
+    : null;
+
   const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f18; color: #e2e8f0; margin: 0; padding: 20px; }
-  .card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 16px; max-width: 520px; margin: 0 auto; overflow: hidden; }
-  .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px; text-align: center; }
-  .header h1 { margin: 0; font-size: 24px; font-weight: 700; color: #fff; }
-  .header p  { margin: 8px 0 0; font-size: 14px; color: rgba(255,255,255,0.8); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f18; color: #e2e8f0; padding: 24px 16px; }
+  .card { background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 20px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 36px 32px; text-align: center; }
+  .header h1 { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .header p  { font-size: 14px; color: rgba(255,255,255,0.85); }
   .body { padding: 32px; }
-  .greeting { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
-  .message  { font-size: 14px; color: #94a3b8; line-height: 1.7; margin-bottom: 24px; }
-  .creds    { background: #0f0f18; border: 1px solid #2d2d44; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-  .creds-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #2d2d44; font-size: 13px; }
+  .greeting { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 10px; }
+  .message  { font-size: 14px; color: #94a3b8; line-height: 1.75; margin-bottom: 24px; }
+  .invited-by { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #94a3b8; margin-bottom: 24px; line-height: 1.8; }
+  .creds { background: #0d0d1a; border: 1px solid #2d2d44; border-radius: 14px; overflow: hidden; margin-bottom: 24px; }
+  .creds-title { background: rgba(99,102,241,0.15); padding: 10px 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #a5b4fc; }
+  .creds-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #1e1e30; }
   .creds-row:last-child { border-bottom: none; }
-  .creds-label { color: #64748b; font-weight: 500; }
-  .creds-value { color: #e2e8f0; font-weight: 600; font-family: monospace; }
-  .btn { display: block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff !important; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 12px; font-weight: 600; font-size: 15px; margin: 0 auto 24px; max-width: 280px; }
-  .warning { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #fbbf24; line-height: 1.6; margin-bottom: 16px; }
-  .footer { text-align: center; padding: 16px 32px; border-top: 1px solid #2d2d44; font-size: 11px; color: #475569; }
+  .creds-label { font-size: 12px; color: #64748b; font-weight: 500; min-width: 120px; }
+  .creds-value { font-size: 13px; color: #e2e8f0; font-weight: 600; font-family: 'Courier New', monospace; text-align: right; word-break: break-all; }
+  .creds-value.highlight { color: #a5b4fc; background: rgba(99,102,241,0.1); padding: 3px 8px; border-radius: 6px; }
+  .creds-value.password { color: #34d399; background: rgba(52,211,153,0.1); padding: 3px 8px; border-radius: 6px; }
+  .creds-value.role-admin { color: #fbbf24; }
+  .creds-value.role-member { color: #67e8f9; }
+  .login-btn { display: block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff !important; text-decoration: none !important; text-align: center; padding: 16px 28px; border-radius: 12px; font-weight: 700; font-size: 15px; margin-bottom: 24px; letter-spacing: 0.3px; }
+  .warning { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 10px; padding: 14px 18px; font-size: 12px; color: #fbbf24; line-height: 1.8; }
+  .warning strong { color: #fcd34d; }
+  .footer { background: #111120; text-align: center; padding: 20px 32px; border-top: 1px solid #1e1e30; font-size: 11px; color: #475569; line-height: 2; }
+  .footer a { color: #6366f1; text-decoration: none; }
 </style></head>
 <body>
   <div class="card">
     <div class="header">
       <h1>🚀 TaskFlow</h1>
-      <p>You've been invited to join a team!</p>
+      <p>You have been invited to join a team!</p>
     </div>
+
     <div class="body">
       <div class="greeting">Hello, ${toName}! 👋</div>
       <div class="message">
-        <strong>${fromName}</strong> has invited you to join their team on <strong>TaskFlow</strong>
-        as a <strong>${roleLabel}</strong>. Use the credentials below to log in and get started.
+        <strong>${fromName}</strong> has invited you to collaborate on <strong>TaskFlow</strong>
+        as a <strong>${roleLabel}</strong>.
+        Use the login credentials below to access your account.
       </div>
-      <div style="padding:10px 14px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.2);font-size:12px;color:#94a3b8;margin-bottom:20px;line-height:1.7;">
-        📩 Invited by: <strong style="color:#e2e8f0">${fromName}</strong> &nbsp;·&nbsp;
-        <a href="mailto:${fromEmail}" style="color:#a5b4fc">${fromEmail}</a><br>
-        💬 To reply directly to ${fromName}, just reply to this email.
+
+      <div class="invited-by">
+        📩 &nbsp;<strong style="color:#e2e8f0">Invited by:</strong> ${fromName}
+        &nbsp;·&nbsp; <a href="mailto:${fromEmail}" style="color:#a5b4fc">${fromEmail}</a><br>
+        💬 &nbsp;To contact your admin, reply to this email directly.
       </div>
 
       <div class="creds">
+        <div class="creds-title">🔐 &nbsp;Your Login Credentials</div>
         <div class="creds-row">
-          <span class="creds-label">Team / Invited by</span>
+          <span class="creds-label">📧 &nbsp;Login Email</span>
+          <span class="creds-value highlight">${toEmail}</span>
+        </div>
+        <div class="creds-row">
+          <span class="creds-label">🔑 &nbsp;Password</span>
+          <span class="creds-value password">${passwordDisplay ? passwordDisplay : 'Use your existing password'}</span>
+        </div>
+        <div class="creds-row">
+          <span class="creds-label">👤 &nbsp;Your Role</span>
+          <span class="creds-value ${role === 'admin' ? 'role-admin' : 'role-member'}">${roleLabel}</span>
+        </div>
+        <div class="creds-row">
+          <span class="creds-label">👑 &nbsp;Team Admin</span>
           <span class="creds-value">${fromName}</span>
         </div>
-        <div class="creds-row">
-          <span class="creds-label">Your Email</span>
-          <span class="creds-value">${toEmail}</span>
-        </div>
-        <div class="creds-row">
-          <span class="creds-label">Your Password</span>
-          <span class="creds-value">${password}</span>
-        </div>
-        <div class="creds-row">
-          <span class="creds-label">Your Role</span>
-          <span class="creds-value">${roleLabel}</span>
-        </div>
       </div>
 
-      <a class="btn" href="${appUrl}">🔑 Log In to TaskFlow</a>
+      <a class="login-btn" href="${appUrl}/login">🔑 &nbsp; Log In to TaskFlow Now</a>
 
       <div class="warning">
-        ⚠️ Please change your password after your first login for security.
-        Keep these credentials safe and do not share them with others.
+        <strong>⚠️ Security Notice:</strong><br>
+        • Save these credentials in a safe place<br>
+        • Change your password after first login for security<br>
+        • Do not share your password with anyone<br>
+        ${passwordDisplay ? '• This password was set by your admin — change it after logging in' : '• Use your existing account password to log in'}
       </div>
     </div>
+
     <div class="footer">
-      This is an automated notification from <strong>TaskFlow</strong>.<br>
-      Sent by your team admin · <strong>${fromName}</strong><br>
-      Questions? Contact your admin at <a href="mailto:${fromEmail}" style="color:#6366f1">${fromEmail}</a><br>
-      If you did not expect this invitation, you can safely ignore it.<br>
+      This is an automated notification from <strong style="color:#a5b4fc">TaskFlow</strong><br>
+      Sent on behalf of your team admin · <strong>${fromName}</strong><br>
+      Questions? Contact your admin at <a href="mailto:${fromEmail}">${fromEmail}</a><br>
+      If you did not expect this invitation, you can safely ignore this email.<br>
       © ${new Date().getFullYear()} TaskFlow — Team Collaboration Platform
     </div>
   </div>
@@ -299,7 +321,9 @@ router.post('/invite',
                 fromName:  inviter.name,
                 fromEmail: inviter.email,
                 teamName:  inviter.name,
-                password:  isReInvite ? '(your existing password)' : password,
+                // Show actual password for new users so they know how to login
+                // For re-invites, they already have their password
+                password:  isReInvite ? null : password,
                 role:      finalRole,
                 appUrl,
               });

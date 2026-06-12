@@ -463,15 +463,16 @@ export default function Team() {
               </div>
 
               {err && <div style={{ padding: '8px 12px', background: 'rgba(248,113,113,0.1)', borderRadius: 8, fontSize: 12, color: '#f87171', marginBottom: '1rem', border: '1px solid rgba(248,113,113,0.2)' }}>⚠ {err}</div>}
-
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => setInvite(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">
-                  {form.sendEmail ? '📧 Invite & Email' : '➕ Invite'}
-                </button>
-              </div>
             </form>
             </div> {/* end scrollable body */}
+
+            {/* Fixed footer — always visible, never hidden by content */}
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0, background: 'var(--bg-card)' }}>
+              <button type="button" className="btn" onClick={() => setInvite(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleInvite}>
+                {form.sendEmail ? '📧 Invite & Email' : '➕ Invite'}
+              </button>
+            </div>
           </div>
         </div>
       )}
