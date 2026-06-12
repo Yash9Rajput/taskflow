@@ -408,12 +408,15 @@ export default function Team() {
       {invite && (
         <div onClick={e => e.target === e.currentTarget && setInvite(false)}
           style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 490, width: '100%', padding: '2rem', animation: 'scaleIn 0.2s', maxHeight: '90vh', overflowY: 'auto' }}
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 490, width: '100%', animation: 'scaleIn 0.2s', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            {/* Fixed header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 1.5rem 1rem', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
               <div style={{ fontFamily: 'var(--font-d)', fontSize: 17, fontWeight: 600 }}>Invite Team Member</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setInvite(false)}>✕</button>
             </div>
+            {/* Scrollable body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '1.25rem 1.5rem' }}>
 
             {/* Re-invite info box */}
             <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 12, color: 'var(--text-2)', marginBottom: '1.25rem', lineHeight: 1.7 }}>
@@ -468,6 +471,7 @@ export default function Team() {
                 </button>
               </div>
             </form>
+            </div> {/* end scrollable body */}
           </div>
         </div>
       )}
