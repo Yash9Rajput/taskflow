@@ -2,7 +2,7 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const { body } = require('express-validator');
-const { Resend } = require('resend');
+const https = require('https');
 
 const { getDb }                    = require('../db/database');
 const { validate }                 = require('../middleware/validate');
@@ -16,10 +16,49 @@ function genId() {
     : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// ── Resend email client (works on Render free tier — uses HTTPS not SMTP) ──
-function getResendClient() {
-  if (!process.env.RESEND_API_KEY) return null;
-  return new Resend(process.env.RESEND_API_KEY);
+// ── Brevo (formerly Sendinblue) email — works on Render free tier via HTTPS API ──
+// Free tier: 300 emails/day, sends to ANY email, no domain verification needed
+function getBrevoKey() {
+  return process.env.BREVO_API_KEY || null;
+}
+
+async function sendBrevoEmail({ to, toName, from, fromName, replyTo, replyToName, subject, html }) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      sender:      { name: fromName, email: from },
+      to:          [{ email: to, name: toName }],
+      replyTo:     { email: replyTo, name: replyToName },
+      subject,
+      htmlContent: html,
+    });
+
+    const options = {
+      hostname: 'api.brevo.com',
+      path:     '/v3/smtp/email',
+      method:   'POST',
+      headers:  {
+        'Content-Type':  'application/json',
+        'Accept':        'application/json',
+        'api-key':       process.env.BREVO_API_KEY,
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ success: true });
+        } else {
+          reject(new Error(`Brevo API error ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
 }
 
 // ISSUE #3: Rate limit — max 5 emails per day per target email per sender
@@ -117,15 +156,17 @@ async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName,
 </body>
 </html>`;
 
-  // Use Resend API — works over HTTPS, no SMTP port blocking
-  const resend = getResendClient();
-  if (!resend) throw new Error('RESEND_API_KEY not configured');
+  // Use Brevo API over HTTPS — works on Render free tier, sends to ANY email
+  if (!getBrevoKey()) throw new Error('BREVO_API_KEY not configured');
 
-  await resend.emails.send({
-    from:     'TaskFlow Invite <onboarding@resend.dev>',  // use resend dev domain until custom domain set
-    reply_to: `${fromName} <${fromEmail}>`,
-    to:       [toEmail],
-    subject:  `🚀 ${fromName} invited you to join TaskFlow`,
+  await sendBrevoEmail({
+    to:          toEmail,
+    toName:      toName,
+    from:        'taskflow.invite@gmail.com',
+    fromName:    'TaskFlow Invite',
+    replyTo:     fromEmail,
+    replyToName: fromName,
+    subject:     `🚀 ${fromName} invited you to join TaskFlow`,
     html,
   });
 }
@@ -248,8 +289,8 @@ router.post('/invite',
           emailResult = { sent: false, reason: `Daily email limit reached (5/day per address). Try again tomorrow.` };
         } else {
           console.log('[MAIL] Attempting to send invite email to:', email);
-          console.log('[MAIL] RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY);
-          if (getResendClient()) {
+          console.log('[MAIL] BREVO_API_KEY configured:', !!process.env.BREVO_API_KEY);
+          if (getBrevoKey()) {
             try {
               const appUrl = process.env.FRONTEND_URL || 'https://taskflow-yash9rajputs-projects.vercel.app';
               await sendInviteEmail({
@@ -271,7 +312,7 @@ router.post('/invite',
               emailResult = { sent: false, reason: 'Mail delivery failed: ' + mailErr.message };
             }
           } else {
-            emailResult = { sent: false, reason: 'RESEND_API_KEY not configured. Add it in Render environment variables.' };
+            emailResult = { sent: false, reason: 'BREVO_API_KEY not configured. Add it in Render environment variables.' };
           }
         }
       }
@@ -311,8 +352,8 @@ router.post('/send-invite-email', authenticate, requireAdmin,
       const target = await db.prepare('SELECT id, name, email, role FROM users WHERE email = ?').get(email);
       if (!target) return res.status(404).json({ error: 'User not found' });
 
-      if (!getResendClient()) {
-        return res.status(503).json({ error: 'Email not configured. Add RESEND_API_KEY in Render environment variables.' });
+      if (!getBrevoKey()) {
+        return res.status(503).json({ error: 'Email not configured. Add BREVO_API_KEY in Render environment variables.' });
       }
 
       const appUrl = process.env.FRONTEND_URL || 'https://taskflow-yash9rajputs-projects.vercel.app';
