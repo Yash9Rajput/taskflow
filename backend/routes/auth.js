@@ -80,10 +80,10 @@ function recordEmailSent(senderId, targetEmail) {
 
 async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName, password, role, appUrl }) {
   const roleLabel = role === 'admin' ? '👑 Admin' : '👤 Member';
-  // Show actual password for new users, guidance for existing users
-  const passwordDisplay = password && password !== '(your existing password)'
-    ? password
-    : null;
+  // New users: show the password set by admin
+  // Re-invited (existing) users: never show/change password — they use their own
+  const passwordDisplay = password && password.trim().length >= 6 ? password : null;
+  const isExistingUser  = !passwordDisplay;
 
   const html = `
 <!DOCTYPE html>
@@ -144,11 +144,16 @@ async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName,
         </div>
         <div class="creds-row">
           <span class="creds-label">🔑 &nbsp;Password</span>
-          <span class="creds-value password">${passwordDisplay ? passwordDisplay : 'Use your existing password'}</span>
+          ${passwordDisplay
+            ? `<span class="creds-value password">${passwordDisplay}</span>`
+            : `<span class="creds-value" style="color:#fbbf24">Use your existing account password</span>`
+          }
         </div>
         <div class="creds-row">
           <span class="creds-label">👤 &nbsp;Your Role</span>
-          <span class="creds-value ${role === 'admin' ? 'role-admin' : 'role-member'}">${roleLabel}</span>
+          <span class="creds-value ${role === 'admin' ? 'role-admin' : 'role-member'}">
+            ${roleLabel} ${isExistingUser ? '(unchanged)' : ''}
+          </span>
         </div>
         <div class="creds-row">
           <span class="creds-label">👑 &nbsp;Team Admin</span>
@@ -160,10 +165,14 @@ async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, teamName,
 
       <div class="warning">
         <strong>⚠️ Security Notice:</strong><br>
-        • Save these credentials in a safe place<br>
-        • Change your password after first login for security<br>
-        • Do not share your password with anyone<br>
-        ${passwordDisplay ? '• This password was set by your admin — change it after logging in' : '• Use your existing account password to log in'}
+        ${passwordDisplay
+          ? `• Your login password is shown above — save it safely<br>
+             • Change your password after first login for security<br>
+             • Do not share your password with anyone`
+          : `• You already have an account — log in with your <strong>existing password</strong><br>
+             • Your role and password have <strong>not been changed</strong><br>
+             • If you forgot your password, contact the admin who invited you`
+        }
       </div>
     </div>
 
@@ -270,20 +279,11 @@ router.post('/invite',
       let userId;
 
       if (existingUser) {
-        // Re-invite: UPDATE role to new role + UPDATE password if provided
+        // Re-invite: NEVER change role or password — preserve user's original identity
+        // Only re-link invited_by so they reappear in inviter's team page
         isReInvite = true;
-        finalRole  = role; // use the NEW role specified by admin
+        finalRole  = existingUser.role; // always keep original role
         userId     = existingUser.id;
-
-        // Update role
-        await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
-
-        // Update password if provided
-        if (password && password.trim().length >= 6) {
-          const bcrypt = require('bcryptjs');
-          const hashed = bcrypt.hashSync(password, 10);
-          await db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, userId);
-        }
 
         // Re-link invited_by so they reappear in current user's team
         try {
@@ -331,9 +331,9 @@ router.post('/invite',
                 fromName:  inviter.name,
                 fromEmail: inviter.email,
                 teamName:  inviter.name,
-                // Always show the password in email — new users get their password,
-                // re-invited users get their updated password
-                password:  password && password.trim().length >= 6 ? password : null,
+                // New users: show the password set by admin
+                // Re-invited users: tell them to use their existing password (never expose/change it)
+                password:  isReInvite ? null : password,
                 role:      finalRole,
                 appUrl,
               });
@@ -356,7 +356,7 @@ router.post('/invite',
         isReInvite,
         email: emailResult,
         message: isReInvite
-          ? `${user.name} re-invited to your team as ${finalRole}. Role and password updated.`
+          ? `${user.name} added to your team. Their existing role (${finalRole}) and password are unchanged.`
           : `${user.name} invited as ${finalRole}.`,
       });
     } catch (err) {

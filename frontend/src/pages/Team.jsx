@@ -281,8 +281,11 @@ export default function Team() {
       <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
         {/* Re-invite info */}
-        <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 13, color: 'var(--text-2)', marginBottom: '1.5rem', lineHeight: 1.8 }}>
-          💡 <strong>Re-inviting someone?</strong> Enter their existing email — you can now set a new role and new password. They will receive an updated invite email with new credentials.
+        <div style={{ padding: '12px 16px', background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 13, color: 'var(--text-2)', marginBottom: '1.5rem', lineHeight: 1.9 }}>
+          <div style={{ fontWeight: 600, color: '#a5b4fc', marginBottom: 6 }}>📋 How invitations work:</div>
+          👤 <strong>New user</strong> — Creates a new account with the name, email, password and role you set.<br/>
+          🔄 <strong>Existing user</strong> — Adds them to your team. Their role and password stay unchanged.<br/>
+          📧 <strong>Email</strong> — New users receive their password. Existing users are told to use their own.
         </div>
 
         {err && (
@@ -309,15 +312,16 @@ export default function Team() {
         <div className="field">
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>Password *</label>
           <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-            placeholder="Min 6 characters — this will be shared in the invite email" />
+            placeholder="Min 6 characters (for new accounts only)" />
           <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-            This password will be shown in the invite email. For re-invites, this updates their login password.
+            💡 For <strong>new users</strong> — set a password they will use to log in (shown in invite email).<br/>
+            For <strong>existing users</strong> — leave blank. They will log in with their original password.
           </div>
         </div>
 
         {/* Role */}
         <div className="field">
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 8 }}>Role</label>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 8 }}>Role (new users only — existing users keep their current role)</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {['member', 'admin'].map(r => (
               <div key={r} onClick={() => setForm(p => ({ ...p, role: r }))}
