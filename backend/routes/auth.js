@@ -270,10 +270,20 @@ router.post('/invite',
       let userId;
 
       if (existingUser) {
-        // Re-invite: keep their ORIGINAL role (do not change)
+        // Re-invite: UPDATE role to new role + UPDATE password if provided
         isReInvite = true;
-        finalRole  = existingUser.role; // preserve original role
+        finalRole  = role; // use the NEW role specified by admin
         userId     = existingUser.id;
+
+        // Update role
+        await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+
+        // Update password if provided
+        if (password && password.trim().length >= 6) {
+          const bcrypt = require('bcryptjs');
+          const hashed = bcrypt.hashSync(password, 10);
+          await db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, userId);
+        }
 
         // Re-link invited_by so they reappear in current user's team
         try {
@@ -321,9 +331,9 @@ router.post('/invite',
                 fromName:  inviter.name,
                 fromEmail: inviter.email,
                 teamName:  inviter.name,
-                // Show actual password for new users so they know how to login
-                // For re-invites, they already have their password
-                password:  isReInvite ? null : password,
+                // Always show the password in email — new users get their password,
+                // re-invited users get their updated password
+                password:  password && password.trim().length >= 6 ? password : null,
                 role:      finalRole,
                 appUrl,
               });
@@ -346,7 +356,7 @@ router.post('/invite',
         isReInvite,
         email: emailResult,
         message: isReInvite
-          ? `${user.name} re-invited to your team with their original ${finalRole} role.`
+          ? `${user.name} re-invited to your team as ${finalRole}. Role and password updated.`
           : `${user.name} invited as ${finalRole}.`,
       });
     } catch (err) {

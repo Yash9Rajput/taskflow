@@ -211,9 +211,9 @@ export default function Team() {
   const [tasks,    setTasks]    = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
-  const [invite,   setInvite]   = useState(false);
-  const [form,     setForm]     = useState({ name: '', email: '', password: '', role: 'member', sendEmail: true });
-  const [err,      setErr]      = useState('');
+  const [view,         setView]        = useState('list'); // 'list' | 'invite'
+  const [form,         setForm]         = useState({ name: '', email: '', password: '', role: 'member', sendEmail: true });
+  const [err,          setErr]          = useState('');
   const [inviteSuccess, setInviteSuccess] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [search,        setSearch]        = useState('');
@@ -225,11 +225,12 @@ export default function Team() {
   };
   useEffect(() => { load(); }, []);
 
-  const handleInvite = async (e) => {
-    e.preventDefault(); setErr(''); setInviteSuccess(null);
+  const handleInvite = async () => {
+    setErr(''); setInviteSuccess(null);
+    if (!form.name.trim() || !form.email.trim()) { setErr('Name and email are required.'); return; }
     try {
       const res = await usersAPI.invite(form);
-      setInvite(false);
+      setView('list');
       setForm({ name: '', email: '', password: '', role: 'member', sendEmail: true });
       setInviteSuccess(res.data);
       load();
@@ -265,6 +266,94 @@ export default function Team() {
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><Spinner /></div>;
 
+  // ── Full inline invite page — same pattern as Notes, no modal, no footer overlap ──
+  if (view === 'invite') return (
+    <div>
+      {/* Header — same as Notes */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
+        <button className="btn" onClick={() => { setView('list'); setErr(''); }}
+          style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
+          ← Back
+        </button>
+        <h2 style={{ fontFamily: 'var(--font-d)', fontSize: 20, fontWeight: 600 }}>Invite Team Member</h2>
+      </div>
+
+      <div className="card" style={{ padding: '2rem', maxWidth: 720, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+
+        {/* Re-invite info */}
+        <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 13, color: 'var(--text-2)', marginBottom: '1.5rem', lineHeight: 1.8 }}>
+          💡 <strong>Re-inviting someone?</strong> Enter their existing email — you can now set a new role and new password. They will receive an updated invite email with new credentials.
+        </div>
+
+        {err && (
+          <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: 13 }}>
+            ⚠ {err}
+          </div>
+        )}
+
+        {/* Name */}
+        <div className="field">
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>Full Name *</label>
+          <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+            placeholder="Their full name" autoFocus />
+        </div>
+
+        {/* Email */}
+        <div className="field">
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>Email Address *</label>
+          <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+            placeholder="email@example.com" />
+        </div>
+
+        {/* Password */}
+        <div className="field">
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 6 }}>Password *</label>
+          <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+            placeholder="Min 6 characters — this will be shared in the invite email" />
+          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+            This password will be shown in the invite email. For re-invites, this updates their login password.
+          </div>
+        </div>
+
+        {/* Role */}
+        <div className="field">
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: 8 }}>Role</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {['member', 'admin'].map(r => (
+              <div key={r} onClick={() => setForm(p => ({ ...p, role: r }))}
+                style={{ padding: '12px 16px', borderRadius: 'var(--r-md)', border: `1px solid ${form.role === r ? 'var(--accent)' : 'var(--border)'}`, background: form.role === r ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'center', fontSize: 14, fontWeight: 600, color: form.role === r ? '#818cf8' : 'var(--text-2)', transition: 'all 0.2s' }}>
+                {r === 'admin' ? '👑 Admin' : '👤 Member'}
+                <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-3)', marginTop: 4 }}>
+                  {r === 'admin' ? 'Can create projects & tasks' : 'Can view & update tasks'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Send email toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', marginBottom: '1.5rem', cursor: 'pointer' }}
+          onClick={() => setForm(p => ({ ...p, sendEmail: !p.sendEmail }))}>
+          <div style={{ width: 40, height: 22, borderRadius: 999, background: form.sendEmail ? '#6366f1' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 3, left: form.sendEmail ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>📧 Send invite email</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>Send login details to their email address (max 5 emails/day per address)</div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn" onClick={() => { setView('list'); setErr(''); }}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleInvite}>
+            {form.sendEmail ? '📧 Invite & Send Email' : '➕ Invite to Team'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div className="section-head au">
@@ -274,7 +363,7 @@ export default function Team() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search members…" style={{ fontSize: 13, minWidth: 200 }} />
-          {isAdmin && <button className="btn btn-primary" onClick={() => setInvite(true)}>+ Invite Member</button>}
+          {isAdmin && <button className="btn btn-primary" onClick={() => { setView('invite'); setErr(''); setForm({ name: '', email: '', password: '', role: 'member', sendEmail: true }); }}>+ Invite Member</button>}
         </div>
       </div>
 
@@ -404,78 +493,7 @@ export default function Team() {
         </div>
       )}
 
-      {/* ISSUE #2 & #3 — Invite modal with re-invite + email toggle */}
-      {invite && (
-        <div onClick={e => e.target === e.currentTarget && setInvite(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-xl)', maxWidth: 490, width: '100%', animation: 'scaleIn 0.2s', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            onClick={e => e.stopPropagation()}>
-            {/* Fixed header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 1.5rem 1rem', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontFamily: 'var(--font-d)', fontSize: 17, fontWeight: 600 }}>Invite Team Member</div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setInvite(false)}>✕</button>
-            </div>
-            {/* Scrollable body */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '1.25rem 1.5rem' }}>
-
-            {/* Re-invite info box */}
-            <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.08)', borderRadius: 'var(--r-sm)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 12, color: 'var(--text-2)', marginBottom: '1.25rem', lineHeight: 1.7 }}>
-              💡 <strong>Re-inviting someone?</strong> Enter their existing email — their account and role will be preserved. You only need to fill in a new password if it's a brand new account.
-            </div>
-
-            <form onSubmit={handleInvite}>
-              {[
-                { k: 'name',     l: 'Full Name',     t: 'text',     p: 'Their name' },
-                { k: 'email',    l: 'Email',         t: 'email',    p: 'email@example.com' },
-                { k: 'password', l: 'Password',      t: 'password', p: 'Min 6 chars (new accounts only)' },
-              ].map(f => (
-                <div className="field" key={f.k}>
-                  <label>{f.l}</label>
-                  <input type={f.t} placeholder={f.p} value={form[f.k]}
-                    onChange={e => setForm(p => ({ ...p, [f.k]: e.target.value }))}
-                    required={f.k !== 'password'}
-                  />
-                </div>
-              ))}
-
-              <div className="field">
-                <label>Role (for new accounts — existing accounts keep their role)</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {['member', 'admin'].map(r => (
-                    <div key={r} onClick={() => setForm(p => ({ ...p, role: r }))}
-                      style={{ padding: '8px', borderRadius: 'var(--r-sm)', border: `1px solid ${form.role === r ? 'var(--accent)' : 'var(--border)'}`, background: form.role === r ? 'rgba(99,102,241,0.1)' : 'transparent', cursor: 'pointer', textAlign: 'center', fontSize: 13, fontWeight: 500, color: form.role === r ? '#818cf8' : 'var(--text-2)', textTransform: 'capitalize' }}>
-                      {r === 'admin' ? '👑' : '👤'} {r}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ISSUE #3: Email toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', marginBottom: '1rem', cursor: 'pointer' }}
-                onClick={() => setForm(p => ({ ...p, sendEmail: !p.sendEmail }))}>
-                <div style={{ width: 36, height: 20, borderRadius: 999, background: form.sendEmail ? '#6366f1' : 'rgba(255,255,255,0.1)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 2, left: form.sendEmail ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>📧 Send invite email</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Send login details to their email (max 5 emails/day per address)</div>
-                </div>
-              </div>
-
-              {err && <div style={{ padding: '8px 12px', background: 'rgba(248,113,113,0.1)', borderRadius: 8, fontSize: 12, color: '#f87171', marginBottom: '1rem', border: '1px solid rgba(248,113,113,0.2)' }}>⚠ {err}</div>}
-            </form>
-            </div> {/* end scrollable body */}
-
-            {/* Fixed footer — always visible, never hidden by content */}
-            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', flexShrink: 0, background: 'var(--bg-card)' }}>
-              <button type="button" className="btn" onClick={() => setInvite(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleInvite}>
-                {form.sendEmail ? '📧 Invite & Email' : '➕ Invite'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Invite form moved to full inline page — see view === 'invite' above */}
     </div>
   );
 }
