@@ -23,8 +23,13 @@ export const DEVELOPER_EMAIL = 'rajput.kyar@gmail.com';
 
 function AppLayout() {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user)   return <Navigate to="/login" replace />;
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '3px solid rgba(99,102,241,0.3)', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  );
+  // No session in THIS tab → go to login
+  if (!user) return <Navigate to="/login" replace />;
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
       <CursorGlow />
@@ -63,8 +68,15 @@ function StaticLayout() {
 
 function GuestOnly({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (user)    return <Navigate to="/" replace />;
+  // While checking session — show nothing (prevents flash)
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '3px solid rgba(99,102,241,0.3)', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  );
+  // Already logged in THIS TAB — go to dashboard
+  // Each tab is independent, so this only redirects if THIS tab has a session
+  if (user) return <Navigate to="/" replace />;
   return children;
 }
 

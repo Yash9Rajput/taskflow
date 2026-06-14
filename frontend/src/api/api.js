@@ -1,11 +1,18 @@
 import axios from 'axios';
 
+// ── sessionStorage keeps each browser tab independent ──
+// Tab 1: Yash logged in → only Yash's token in Tab 1's sessionStorage
+// Tab 2: Kyar logs in  → only Kyar's token in Tab 2's sessionStorage
+// New tab from email link → empty sessionStorage → login page shown
+
+const TOKEN_KEY = 'tf_token';
+
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem(TOKEN_KEY);
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -14,13 +21,15 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem('tf_user');
       window.location.href = '/login';
     }
     return Promise.reject(err);
   }
 );
 
+// Auth
 export const authAPI = {
   login:  (data) => api.post('/auth/login', data),
   signup: (data) => api.post('/auth/signup', data),
@@ -28,17 +37,16 @@ export const authAPI = {
   me:     ()     => api.get('/auth/me'),
 };
 
+// Users
 export const usersAPI = {
-  list:            ()                  => api.get('/users'),
-  updateRole:      (id, role)          => api.patch(`/users/${id}/role`, { role }),
-  // invite accepts { name, email, password, role, sendEmail }
-  invite:          (data)              => api.post('/auth/invite', data),
-  // remove from shared projects (account preserved)
-  delete:          (id)                => api.delete(`/users/${id}`),
-  // user leaves a specific project themselves
-  leaveProject:    (userId, projectId) => api.delete(`/users/${userId}/leave/${projectId}`),
+  list:         ()                  => api.get('/users'),
+  updateRole:   (id, role)          => api.patch(`/users/${id}/role`, { role }),
+  invite:       (data)              => api.post('/auth/invite', data),
+  delete:       (id)                => api.delete(`/users/${id}`),
+  leaveProject: (userId, projectId) => api.delete(`/users/${userId}/leave/${projectId}`),
 };
 
+// Projects
 export const projectsAPI = {
   list:   ()         => api.get('/projects'),
   get:    (id)       => api.get(`/projects/${id}`),
@@ -47,6 +55,7 @@ export const projectsAPI = {
   delete: (id)       => api.delete(`/projects/${id}`),
 };
 
+// Tasks
 export const tasksAPI = {
   list:   (params)   => api.get('/tasks', { params }),
   get:    (id)       => api.get(`/tasks/${id}`),
@@ -55,13 +64,9 @@ export const tasksAPI = {
   delete: (id)       => api.delete(`/tasks/${id}`),
 };
 
+// Dashboard
 export const dashboardAPI = {
   stats: () => api.get('/dashboard'),
-};
-
-// AI
-export const aiAPI = {
-  chat: (messages, system) => api.post('/ai/chat', { messages, system }),
 };
 
 export default api;
