@@ -69,4 +69,10 @@ export const dashboardAPI = {
   stats: () => api.get('/dashboard'),
 };
 
+
+// AI
+export const aiAPI = {
+  chat: (messages, system) => api.post('/ai/chat', { messages, system }),
+};
+
 export default api;
