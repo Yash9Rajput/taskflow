@@ -1,22 +1,40 @@
 import axios from 'axios';
 
+// ── Token stored in sessionStorage (per-tab) ─────────────────────────────────
+// Each browser tab has its own independent session
+// New tab = empty sessionStorage = login page shown
+// Tab 1 (Yash) and Tab 2 (Kyar) never interfere with each other
+
+const TOKEN_KEY = 'tf_token';
+const USER_KEY  = 'tf_user';
+
+export const getToken     = ()       => sessionStorage.getItem(TOKEN_KEY);
+export const saveSession  = (t, u)   => {
+  sessionStorage.setItem(TOKEN_KEY, t);
+  sessionStorage.setItem(USER_KEY, JSON.stringify(u));
+};
+export const clearSession = ()       => {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+};
+
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
-  //baseURL: 'https://taskflow-production-9b13.up.railway.app/api',
 });
 
+// Attach token from sessionStorage on every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
-});
+}, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      clearSession();
+      window.location.replace('/login');
     }
     return Promise.reject(err);
   }
@@ -32,11 +50,11 @@ export const authAPI = {
 
 // Users
 export const usersAPI = {
-  list:       ()           => api.get('/users'),
-  updateRole: (id, role)   => api.patch(`/users/${id}/role`, { role }),
-  invite:     (data)       => api.post('/auth/invite', data),
-  delete:     (id)         => api.delete(`/users/${id}`),
-  leaveProject:(userId, projectId)   => api.delete(`/users/${userId}/leave/${projectId}`),
+  list:         ()                  => api.get('/users'),
+  updateRole:   (id, role)          => api.patch(`/users/${id}/role`, { role }),
+  invite:       (data)              => api.post('/auth/invite', data),
+  delete:       (id)                => api.delete(`/users/${id}`),
+  leaveProject: (userId, projectId) => api.delete(`/users/${userId}/leave/${projectId}`),
 };
 
 // Projects

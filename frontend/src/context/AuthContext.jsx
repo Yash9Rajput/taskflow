@@ -1,79 +1,59 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api, { getToken, saveSession, clearSession } from '../api';
+
+// AuthContext — uses sessionStorage via api/index.js
+// Each browser tab is fully independent
 
 const AuthContext = createContext(null);
 
-// ── Per-tab session keys ──────────────────────────────────────────────────────
-const TOKEN_KEY = 'tf_token';
-const USER_KEY  = 'tf_user';
+const getStoredUser = () => {
+  try { return JSON.parse(sessionStorage.getItem('tf_user')); } catch { return null; }
+};
 
-export const getToken  = ()         => sessionStorage.getItem(TOKEN_KEY);
-export const getUser   = ()         => { try { return JSON.parse(sessionStorage.getItem(USER_KEY)); } catch { return null; } };
-export const saveSession  = (t, u)  => { sessionStorage.setItem(TOKEN_KEY, t); sessionStorage.setItem(USER_KEY, JSON.stringify(u)); };
-export const clearSession = ()      => { sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(USER_KEY); };
-
-// Clear old localStorage tokens (one-time migration)
+// One-time: clear old localStorage tokens from previous app version
 const clearLegacy = () => {
   try { localStorage.removeItem('token'); localStorage.removeItem('user'); } catch {}
 };
 
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(() => getUser());
-  const [loading, setLoading] = useState(!!getToken()); // only load if token exists
+  const [user,    setUser]    = useState(() => getStoredUser());
+  const [loading, setLoading] = useState(!!getToken()); // true only if token exists in THIS tab
 
   useEffect(() => {
     clearLegacy();
+
     const token = getToken();
     if (!token) {
+      // No token in this tab → no loading needed → show login
       setLoading(false);
       return;
     }
 
-    // Validate token — use fetch directly to avoid circular imports with api.js
-    const baseURL = process.env.REACT_APP_API_URL || '/api';
-    fetch(`${baseURL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    // Validate token with backend
+    api.get('/auth/me')
       .then(res => {
-        if (!res.ok) throw new Error('Invalid token');
-        return res.json();
-      })
-      .then(data => {
-        const freshUser = data.user;
+        const freshUser = res.data.user;
         setUser(freshUser);
-        sessionStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+        sessionStorage.setItem('tf_user', JSON.stringify(freshUser));
       })
       .catch(() => {
         clearSession();
         setUser(null);
       })
       .finally(() => setLoading(false));
-  }, []); // runs ONCE on mount only
+  }, []); // ← CRITICAL: empty deps — runs ONCE, never causes re-render loop
 
   const login = useCallback(async (email, password) => {
-    const baseURL = process.env.REACT_APP_API_URL || '/api';
-    const res = await fetch(`${baseURL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw { response: { data } };
-    const { token, user: u } = data;
+    const res = await api.post('/auth/login', { email, password });
+    const { token, user: u } = res.data;
     saveSession(token, u);
     setUser(u);
     return u;
   }, []);
 
   const signup = useCallback(async (name, email, password, role) => {
-    const baseURL = process.env.REACT_APP_API_URL || '/api';
-    const res = await fetch(`${baseURL}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw { response: { data } };
-    const { token, user: u } = data;
+    const res = await api.post('/auth/signup', { name, email, password, role });
+    const { token, user: u } = res.data;
     saveSession(token, u);
     setUser(u);
     return u;
@@ -82,14 +62,13 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
-    // Use replace to prevent back-button issues
     window.location.replace('/login');
   }, []);
 
   const updateUser = useCallback((updates) => {
     setUser(prev => {
       const updated = { ...prev, ...updates };
-      sessionStorage.setItem(USER_KEY, JSON.stringify(updated));
+      sessionStorage.setItem('tf_user', JSON.stringify(updated));
       return updated;
     });
   }, []);
