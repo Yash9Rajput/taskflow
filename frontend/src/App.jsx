@@ -2,29 +2,39 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import CursorGlow from './components/CursorGlow';
-import Login    from './pages/Login';
-import Signup   from './pages/Signup';
-import Dashboard    from './pages/Dashboard';
-import Projects     from './pages/Projects';
-import Tasks        from './pages/Tasks';
-import Team         from './pages/Team';
-import Notes        from './pages/Notes';
-import AI           from './pages/AI';
-import AboutTaskFlow    from './pages/AboutTaskFlow';
-import AboutDeveloper   from './pages/AboutDeveloper';
-import PrivacyPolicy    from './pages/PrivacyPolicy';
+import Navbar          from './components/Navbar';
+import Footer          from './components/Footer';
+import CursorGlow      from './components/CursorGlow';
+
+// Auth pages
+import Login           from './pages/Login';
+import Signup          from './pages/Signup';
+import ForgotPassword  from './pages/ForgotPassword';
+import ResetPassword   from './pages/ResetPassword';
+import GoogleCallback  from './pages/GoogleCallback';
+
+// App pages
+import Dashboard       from './pages/Dashboard';
+import Projects        from './pages/Projects';
+import Tasks           from './pages/Tasks';
+import Team            from './pages/Team';
+import Notes           from './pages/Notes';
+import AI              from './pages/AI';
+
+// Static pages
+import AboutTaskFlow   from './pages/AboutTaskFlow';
+import AboutDeveloper  from './pages/AboutDeveloper';
+import PrivacyPolicy   from './pages/PrivacyPolicy';
+
 import './index.css';
 
-// The "developer" is identified by this email — only this account has god-mode delete
 export const DEVELOPER_EMAIL = 'rajput.kyar@gmail.com';
+
+// ── Layouts ───────────────────────────────────────────────────────────────────
 
 function AppLayout() {
   const { user, loading } = useAuth();
-  if (loading) return null; // wait silently — no spinner needed
-  // No session in THIS tab → go to login
+  if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column' }}>
@@ -38,7 +48,6 @@ function AppLayout() {
   );
 }
 
-// Public layout pages (no Navbar/Footer needed)
 function PublicLayout({ children }) {
   return (
     <div style={{minHeight:'100vh',background:'var(--bg)'}}>
@@ -48,7 +57,6 @@ function PublicLayout({ children }) {
   );
 }
 
-// Static pages have Navbar + Footer but no auth required
 function StaticLayout() {
   return (
     <div style={{minHeight:'100vh',background:'var(--bg)',display:'flex',flexDirection:'column'}}>
@@ -62,14 +70,15 @@ function StaticLayout() {
   );
 }
 
+// Redirect already-logged-in users away from auth pages
 function GuestOnly({ children }) {
   const { user, loading } = useAuth();
-  // While checking session — show nothing (prevents flash)
-  if (loading) return null; // brief flash is fine — better than crash
-  // Already logged in THIS TAB → go to dashboard
+  if (loading) return null;
   if (user) return <Navigate to="/" replace />;
   return children;
 }
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
   return (
@@ -77,18 +86,31 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Guest-only */}
-            <Route path="/login"  element={<GuestOnly><PublicLayout><Login /></PublicLayout></GuestOnly>} />
-            <Route path="/signup" element={<GuestOnly><PublicLayout><Signup /></PublicLayout></GuestOnly>} />
 
-            {/* Static public pages */}
+            {/* ── Guest-only auth pages ───────────────────────────────────── */}
+            <Route path="/login"
+              element={<GuestOnly><PublicLayout><Login/></PublicLayout></GuestOnly>} />
+            <Route path="/signup"
+              element={<GuestOnly><PublicLayout><Signup/></PublicLayout></GuestOnly>} />
+            <Route path="/forgot-password"
+              element={<GuestOnly><PublicLayout><ForgotPassword/></PublicLayout></GuestOnly>} />
+
+            {/* Reset password — accessible without login (user may not be logged in) */}
+            <Route path="/reset-password"
+              element={<PublicLayout><ResetPassword/></PublicLayout>} />
+
+            {/* Google OAuth callback — no auth check needed, handled inside the component */}
+            <Route path="/auth/callback"
+              element={<PublicLayout><GoogleCallback/></PublicLayout>} />
+
+            {/* ── Static public pages ─────────────────────────────────────── */}
             <Route element={<StaticLayout/>}>
               <Route path="/about"     element={<AboutTaskFlow/>}  />
               <Route path="/developer" element={<AboutDeveloper/>} />
               <Route path="/privacy"   element={<PrivacyPolicy/>}  />
             </Route>
 
-            {/* Authenticated app */}
+            {/* ── Authenticated app ───────────────────────────────────────── */}
             <Route element={<AppLayout/>}>
               <Route path="/"         element={<Dashboard/>}  />
               <Route path="/projects" element={<Projects/>}   />

@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 // ── Token stored in sessionStorage (per-tab) ─────────────────────────────────
-// Each browser tab has its own independent session
-// New tab = empty sessionStorage = login page shown
-// Tab 1 (Yash) and Tab 2 (Kyar) never interfere with each other
+// Each browser tab has its own independent session.
+// New tab = empty sessionStorage = login page shown.
 
 const TOKEN_KEY = 'tf_token';
 const USER_KEY  = 'tf_user';
@@ -40,15 +39,17 @@ api.interceptors.response.use(
   }
 );
 
-// Auth
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export const authAPI = {
-  login:  (data) => api.post('/auth/login', data),
-  signup: (data) => api.post('/auth/signup', data),
-  invite: (data) => api.post('/auth/invite', data),
-  me:     ()     => api.get('/auth/me'),
+  login:          (data)            => api.post('/auth/login', data),
+  signup:         (data)            => api.post('/auth/signup', data),
+  invite:         (data)            => api.post('/auth/invite', data),
+  me:             ()                => api.get('/auth/me'),
+  forgotPassword: (email)           => api.post('/auth/forgot-password', { email }),
+  resetPassword:  (token, password) => api.post('/auth/reset-password', { token, password }),
 };
 
-// Users
+// ── Users ─────────────────────────────────────────────────────────────────────
 export const usersAPI = {
   list:         ()                  => api.get('/users'),
   updateRole:   (id, role)          => api.patch(`/users/${id}/role`, { role }),
@@ -57,7 +58,7 @@ export const usersAPI = {
   leaveProject: (userId, projectId) => api.delete(`/users/${userId}/leave/${projectId}`),
 };
 
-// Projects
+// ── Projects ──────────────────────────────────────────────────────────────────
 export const projectsAPI = {
   list:   ()         => api.get('/projects'),
   get:    (id)       => api.get(`/projects/${id}`),
@@ -66,7 +67,7 @@ export const projectsAPI = {
   delete: (id)       => api.delete(`/projects/${id}`),
 };
 
-// Tasks
+// ── Tasks ─────────────────────────────────────────────────────────────────────
 export const tasksAPI = {
   list:   (params)   => api.get('/tasks', { params }),
   get:    (id)       => api.get(`/tasks/${id}`),
@@ -75,12 +76,12 @@ export const tasksAPI = {
   delete: (id)       => api.delete(`/tasks/${id}`),
 };
 
-// Dashboard
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 export const dashboardAPI = {
   stats: () => api.get('/dashboard'),
 };
 
-// AI
+// ── AI ────────────────────────────────────────────────────────────────────────
 export const aiAPI = {
   chat: (messages, system) => api.post('/ai/chat', { messages, system }),
 };
