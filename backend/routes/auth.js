@@ -151,7 +151,7 @@ async function sendInviteEmail({ toEmail, toName, fromName, fromEmail, password,
 
   return sendBrevoEmail({
     to: toEmail, toName,
-    from: 'noreply@taskflowteams.com', fromName: 'TaskFlow',
+    from: 'taskflow.invite@gmail.com', fromName: 'TaskFlow',
     replyTo: fromEmail, replyToName: fromName,
     subject: `${fromName} invited you to TaskFlow`,
     html,
@@ -208,7 +208,7 @@ async function sendPasswordResetEmail({ toEmail, toName, resetLink }) {
 
   return sendBrevoEmail({
     to: toEmail, toName,
-    from: 'noreply@taskflowteams.com', fromName: 'TaskFlow',
+    from: 'taskflow.invite@gmail.com', fromName: 'TaskFlow',
     replyTo: 'rajput.kyar@gmail.com', replyToName: 'TaskFlow Support',
     subject: 'Reset your TaskFlow password',
     html,
