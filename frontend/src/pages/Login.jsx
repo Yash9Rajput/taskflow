@@ -400,7 +400,7 @@ export default function Login() {
             }}>
               <StatCard value="10k+" label="Tasks done"   icon="✅" delay={0.65} />
               <StatCard value="500+"  label="Teams"        icon="👥" delay={0.7}  />
-              <StatCard value="99.9%" label="Uptime"       icon="🚀" delay={0.75} />
+              <StatCard value="99.9%" label="Uptime"       icon="⚡" delay={0.75} />
             </div>
 
             {/* Testimonial */}
@@ -473,7 +473,7 @@ export default function Login() {
                 fontFamily: 'var(--font-d)', fontSize: 32, fontWeight: 800,
                 color: 'white', lineHeight: 1.2, marginBottom: 8, letterSpacing: '-0.5px',
               }}>
-                Welcome back 👋
+                Welcome to TaskFlow
               </h1>
               <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
                 Sign in to continue to your workspace.{' '}
@@ -653,7 +653,7 @@ export default function Login() {
 
             {/* Bottom credit */}
             <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
-              Built with ❤️ by <span style={{ color: 'rgba(165,180,252,0.5)' }}>Yash Rajput</span>
+              Built with 🔥 by <span style={{ color: 'rgba(165,180,252,0.5)' }}>Yash Rajput</span>
             </div>
           </div>
         </div>
