@@ -273,3 +273,217 @@ label{font-size:11px;font-weight:600;color:var(--text-2);display:block;margin-bo
 
 /* ── Pulse dot ── */
 .pulse-dot{width:8px;height:8px;border-radius:50%;display:inline-block;animation:pulse-dot 2s ease-in-out infinite}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE LAYER
+   Append this entire block to the END of frontend/src/index.css.
+   It does not change desktop styles — every rule is scoped inside
+   @media queries, so desktop (>1024px) renders exactly as before.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ── Tablet & below (≤1024px) ─────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .page-wrap {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Dashboard 3-column row → 2 columns */
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── Mobile & small tablet (≤900px) ───────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Any inline 3-column dashboard row collapses to 1 column */
+  div[style*="gridTemplateColumns:'1fr 1.4fr 1fr'"],
+  div[style*="grid-template-columns: 1fr 1.4fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Phones (≤768px) ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* ─ Navbar ─ */
+  .navbar {
+    padding: 10px 14px !important;
+    flex-wrap: nowrap !important;
+    height: auto !important;
+    min-height: 56px !important;
+  }
+  .navbar-links {
+    display: none !important;
+  }
+  .navbar-live {
+    display: none !important;
+  }
+  .navbar-profile {
+    display: none !important;
+  }
+  .navbar-hamburger {
+    display: flex !important;
+  }
+  .nav-logo {
+    font-size: 16px !important;
+  }
+  .nav-logo svg {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* ─ Page wrapper ─ */
+  .page-wrap {
+    padding: 0.875rem !important;
+  }
+  .page-title {
+    font-size: 22px !important;
+  }
+
+  /* ─ Stat grids: always single column on phones ─ */
+  .grid-4, .grid-3, .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Catch any inline gridTemplateColumns used across pages */
+  div[style*="grid-template-columns"],
+  div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Exceptions that should stay 2-col even on phones (Quick Stats, role pills) */
+  .keep-2col {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ─ Cards ─ */
+  .card {
+    padding: 1rem !important;
+  }
+
+  /* ─ Tables: horizontal scroll instead of squeeze ─ */
+  table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    white-space: nowrap !important;
+  }
+
+  /* ─ Modals: full-width, safe padding ─ */
+  .modal, [class*="modal"] {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 0 12px !important;
+  }
+
+  /* ─ Auth pages (login/signup split screen) ─ */
+  .auth-wrap {
+    flex-direction: column !important;
+  }
+
+  /* ─ Footer ─ */
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+    padding: 1.5rem 1.25rem 1rem !important;
+  }
+  .footer-brand {
+    margin-bottom: 1.25rem;
+  }
+  .footer-col {
+    border-top: 1px solid var(--border);
+    padding: 14px 0;
+  }
+  .footer-col-arrow {
+    display: inline-block !important;
+  }
+  .footer-col-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+  }
+  .footer-col-body.open {
+    max-height: 400px;
+  }
+  .footer-bottom {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .footer-tech-stack {
+    display: none !important;
+  }
+
+  /* ─ AI page mobile tweaks ─ */
+  .ai-btn-label {
+    display: none;
+  }
+
+  /* ─ Generic text truncation safety ─ */
+  h1, h2, h3 {
+    word-break: break-word;
+  }
+
+  /* ─ Buttons: comfortable tap targets ─ */
+  button, .btn, a.btn {
+    min-height: 38px;
+  }
+
+  /* ─ Forms: prevent iOS zoom on focus (font-size must be ≥16px) ─ */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Small phones (≤480px) ───────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 19px !important;
+  }
+  .nav-logo span,
+  .nav-logo {
+    font-size: 15px !important;
+  }
+  .card {
+    padding: 0.875rem !important;
+    border-radius: 14px !important;
+  }
+  .auth-card {
+    padding: 0 !important;
+  }
+  .auth-box {
+    padding: 1.25rem !important;
+  }
+}
+
+/* ── Footer accordion arrow hidden by default on desktop ────────────────── */
+.footer-col-arrow {
+  display: none;
+}
+.footer-col-body {
+  max-height: none;
+}
+@media (min-width: 769px) {
+  .footer-col-head {
+    cursor: default !important;
+  }
+}
