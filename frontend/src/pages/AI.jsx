@@ -553,7 +553,6 @@ export default function AI() {
     setChats(loadChats(user.id));
     setMessages([makeWelcome()]);
     setActiveChatId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Scroll on new messages
@@ -577,7 +576,6 @@ export default function AI() {
       saveChats(user.id, updated);
       return updated;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   const handleFile = (e) => {
