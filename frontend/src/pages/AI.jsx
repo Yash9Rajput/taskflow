@@ -12,14 +12,22 @@ const SUGGESTIONS = [
   { icon: '🎯', text: 'How to set effective OKRs for my team?' },
 ];
 
-const STORAGE_KEY = 'tf_ai_chats';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function loadChats() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+// ── Per-user storage key ─────────────────────────────────────────────────────
+// CRITICAL FIX: chats must be scoped to the logged-in user's ID, never shared
+// globally — otherwise Account A sees Account B's chat history.
+function storageKeyFor(userId) {
+  return userId ? `tf_ai_chats_${userId}` : null;
 }
-function saveChats(chats) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0, 30))); } catch {}
+
+function loadChats(userId) {
+  const key = storageKeyFor(userId);
+  if (!key) return [];
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
+}
+function saveChats(userId, chats) {
+  const key = storageKeyFor(userId);
+  if (!key) return;
+  try { localStorage.setItem(key, JSON.stringify(chats.slice(0, 30))); } catch {}
 }
 function genChatId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -28,6 +36,17 @@ function chatTitle(messages) {
   const first = messages.find(m => m.role === 'user');
   if (!first) return 'New Chat';
   return first.content?.slice(0, 48) + (first.content?.length > 48 ? '…' : '');
+}
+
+// One-time migration: if the OLD global key `tf_ai_chats` exists from before
+// this fix, and it has no owner info, just remove it so it can't leak into
+// any account anymore. Each user starts fresh under their own scoped key.
+function cleanupLegacyGlobalChats() {
+  try {
+    if (localStorage.getItem('tf_ai_chats')) {
+      localStorage.removeItem('tf_ai_chats');
+    }
+  } catch {}
 }
 
 // ── Copy helper ───────────────────────────────────────────────────────────────
@@ -77,6 +96,7 @@ function renderMarkdown(text, onCopyCode) {
             padding: '8px 14px',
             background: 'rgba(99,102,241,0.12)',
             borderBottom: '1px solid rgba(99,102,241,0.2)',
+            flexWrap: 'wrap', gap: 6,
           }}>
             <span style={{ fontSize: 11, color: '#a5b4fc', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               {lang}
@@ -92,7 +112,7 @@ function renderMarkdown(text, onCopyCode) {
             </button>
           </div>
           {/* Scrollable code */}
-          <div style={{ overflowX: 'auto', padding: '14px 16px', maxHeight: 400, overflowY: 'auto' }}>
+          <div style={{ overflowX: 'auto', padding: '14px 16px', maxHeight: 400, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <pre style={{
               margin: 0, fontSize: 13, lineHeight: 1.65,
               color: '#e2e8f0', fontFamily: "'Fira Code', 'Cascadia Code', 'Courier New', monospace",
@@ -198,13 +218,12 @@ function renderMarkdown(text, onCopyCode) {
     // Ordered list
     if (line.match(/^\d+\. /)) {
       const listItems = [];
-      let num = 1;
       while (i < lines.length && lines[i].match(/^\d+\. /)) {
         listItems.push(lines[i].replace(/^\d+\. /, ''));
         i++;
       }
       elements.push(
-        <ol key={keyCounter++} style={{ margin: '8px 0', paddingLeft: 0, listStyle: 'none', counterReset: 'ai-list' }}>
+        <ol key={keyCounter++} style={{ margin: '8px 0', paddingLeft: 0, listStyle: 'none' }}>
           {listItems.map((item, idx) => (
             <li key={idx} style={{
               display: 'flex', gap: 10, alignItems: 'flex-start',
@@ -288,6 +307,7 @@ function ActionBtn({ icon, label, onClick, active }) {
         color: active ? '#a5b4fc' : hover ? '#a5b4fc' : 'var(--text-3)',
         fontSize: 11, fontWeight: 500, cursor: 'pointer',
         transition: 'all 0.15s', fontFamily: 'var(--font-b)',
+        whiteSpace: 'nowrap',
       }}>
       <span style={{ fontSize: 12 }}>{icon}</span>
       <span>{label}</span>
@@ -312,6 +332,7 @@ function ShareModal({ content, onClose }) {
         background: 'var(--bg-card)', border: '1px solid var(--border-hi)',
         borderRadius: 20, padding: '1.5rem', width: '100%', maxWidth: 420,
         boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'scaleIn 0.2s ease',
+        maxHeight: '85vh', overflowY: 'auto', boxSizing: 'border-box',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div style={{ fontFamily: 'var(--font-d)', fontSize: 16, fontWeight: 700 }}>Share Response</div>
@@ -368,6 +389,7 @@ function EditModal({ content, onClose, onResend }) {
         background: 'var(--bg-card)', border: '1px solid var(--border-hi)',
         borderRadius: 20, padding: '1.5rem', width: '100%', maxWidth: 520,
         boxShadow: '0 24px 80px rgba(0,0,0,0.6)', animation: 'scaleIn 0.2s ease',
+        maxHeight: '85vh', overflowY: 'auto', boxSizing: 'border-box',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ fontFamily: 'var(--font-d)', fontSize: 16, fontWeight: 700 }}>Edit & Resend</div>
@@ -495,8 +517,11 @@ export default function AI() {
     id: 'welcome',
   });
 
-  // Chat sessions stored in localStorage
-  const [chats, setChats]           = useState(() => loadChats());
+  // ── CRITICAL FIX: chats are now scoped to user.id ─────────────────────────
+  // Previously all accounts shared a single `tf_ai_chats` localStorage key,
+  // so Account B could see Account A's saved chats. Now every read/write
+  // goes through storageKeyFor(user.id) which is unique per account.
+  const [chats, setChats]           = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [messages, setMessages]     = useState([makeWelcome()]);
   const [input, setInput]           = useState('');
@@ -508,18 +533,37 @@ export default function AI() {
   const [shareMsg, setShareMsg]     = useState(null);
   const [editMsg, setEditMsg]       = useState(null);
   const [copiedCode, setCopiedCode] = useState('');
+  const [isMobile, setIsMobile]     = useState(window.innerWidth <= 768);
 
   const messagesEndRef = useRef(null);
   const fileRef        = useRef(null);
   const textareaRef    = useRef(null);
+
+  // Track viewport for mobile layout
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Load this user's own chats once we know who they are
+  useEffect(() => {
+    if (!user?.id) return;
+    cleanupLegacyGlobalChats();
+    setChats(loadChats(user.id));
+    setMessages([makeWelcome()]);
+    setActiveChatId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, loading]);
 
-  // Save current chat to localStorage whenever messages change
+  // Save current chat to THIS user's scoped storage whenever messages change
   useEffect(() => {
+    if (!user?.id) return;
     if (messages.length <= 1) return; // don't save empty/welcome-only chats
     const chatData = {
       id: activeChatId || genChatId(),
@@ -530,9 +574,10 @@ export default function AI() {
     setChats(prev => {
       const filtered = prev.filter(c => c.id !== chatData.id);
       const updated  = [chatData, ...filtered];
-      saveChats(updated);
+      saveChats(user.id, updated);
       return updated;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   const handleFile = (e) => {
@@ -587,7 +632,6 @@ export default function AI() {
   const retryLast = () => {
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUser) return;
-    // Remove the last assistant response
     setMessages(m => m.filter((_, i) => i < m.length - 1 || m[m.length - 1].role !== 'assistant'));
     sendMessage(lastUser.content);
   };
@@ -596,6 +640,7 @@ export default function AI() {
     setMessages([makeWelcome()]);
     setActiveChatId(null);
     setInput('');
+    if (isMobile) setShowSidebar(false);
   };
 
   const loadChat = (id) => {
@@ -608,9 +653,10 @@ export default function AI() {
   };
 
   const deleteChat = (id) => {
+    if (!user?.id) return;
     setChats(prev => {
       const updated = prev.filter(c => c.id !== id);
-      saveChats(updated);
+      saveChats(user.id, updated);
       return updated;
     });
     if (activeChatId === id) startNewChat();
@@ -638,42 +684,55 @@ export default function AI() {
       {editMsg  && <EditModal  content={editMsg.content} onClose={() => setEditMsg(null)} onResend={(txt) => { sendMessage(txt); }} />}
 
       {/* Header */}
-      <div className="au" style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 'var(--r-md)', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: '0 8px 24px rgba(99,102,241,0.4)' }}>✦</div>
-          <div>
+      <div className="au" style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 'var(--r-md)', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, boxShadow: '0 8px 24px rgba(99,102,241,0.4)', flexShrink: 0 }}>✦</div>
+          <div style={{ minWidth: 0 }}>
             <h1 style={{ fontFamily: 'var(--font-d)', fontSize: 22, fontWeight: 700, background: 'linear-gradient(135deg,#a5b4fc,#c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>AI Assistant</h1>
-            <p style={{ fontSize: 12, color: 'var(--text-3)' }}>Ask anything · {chats.length} saved chats</p>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Ask anything · {chats.length} saved chats</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button
             onClick={() => setShowSidebar(v => !v)}
             className="btn"
             style={{ fontSize: 12, gap: 6, display: 'flex', alignItems: 'center', background: showSidebar ? 'rgba(99,102,241,0.12)' : undefined, borderColor: showSidebar ? 'rgba(99,102,241,0.4)' : undefined }}>
-            💬 Chats {chats.length > 0 && <span style={{ background: 'rgba(99,102,241,0.2)', borderRadius: 10, padding: '1px 6px', fontSize: 10, color: '#a5b4fc' }}>{chats.length}</span>}
+            💬 <span className="ai-btn-label">Chats</span> {chats.length > 0 && <span style={{ background: 'rgba(99,102,241,0.2)', borderRadius: 10, padding: '1px 6px', fontSize: 10, color: '#a5b4fc' }}>{chats.length}</span>}
           </button>
           <button onClick={startNewChat} className="btn btn-primary" style={{ fontSize: 12 }}>
-            ✦ New Chat
+            ✦ <span className="ai-btn-label">New Chat</span>
           </button>
         </div>
       </div>
 
       {/* Body: sidebar + chat */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden', minHeight: 0, position: 'relative' }}>
 
-        {/* Sidebar */}
+        {/* Sidebar — overlay on mobile, inline on desktop */}
         {showSidebar && (
-          <ChatSidebar
-            chats={chats}
-            activeChatId={activeChatId}
-            onSelect={loadChat}
-            onNew={startNewChat}
-            onDelete={deleteChat}
-            searchQuery={sidebarSearch}
-            onSearch={setSidebarSearch}
-            onClose={() => setShowSidebar(false)}
-          />
+          <>
+            {isMobile && (
+              <div
+                onClick={() => setShowSidebar(false)}
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 90 }}
+              />
+            )}
+            <div style={isMobile ? {
+              position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 91,
+              width: 'min(280px, 85vw)', animation: 'slideInLeft 0.25s ease',
+            } : {}}>
+              <ChatSidebar
+                chats={chats}
+                activeChatId={activeChatId}
+                onSelect={loadChat}
+                onNew={startNewChat}
+                onDelete={deleteChat}
+                searchQuery={sidebarSearch}
+                onSearch={setSidebarSearch}
+                onClose={() => setShowSidebar(false)}
+              />
+            </div>
+          </>
         )}
 
         {/* Chat window */}
@@ -700,7 +759,7 @@ export default function AI() {
 
                   {/* Bubble */}
                   <div style={{
-                    maxWidth: msg.role === 'user' ? '70%' : '82%',
+                    maxWidth: msg.role === 'user' ? '85%' : '92%',
                     minWidth: 80,
                   }}>
                     <div style={{
@@ -711,6 +770,7 @@ export default function AI() {
                       fontSize: 14, lineHeight: 1.8,
                       color: msg.role === 'user' ? 'white' : 'var(--text-2)',
                       animation: 'fadeUp 0.3s ease',
+                      wordBreak: 'break-word',
                     }}>
                       {msg.file && msg.file.type?.startsWith('image/') && (
                         <img src={msg.file.data} alt={msg.file.name} style={{ width: '100%', borderRadius: 'var(--r-sm)', marginBottom: 8, maxHeight: 200, objectFit: 'cover' }}/>
@@ -731,13 +791,11 @@ export default function AI() {
                       flexWrap: 'wrap',
                     }}>
                       {msg.role === 'user' ? (
-                        // User message actions: Edit + Copy
                         <>
                           <ActionBtn icon="✏️" label="Edit" onClick={() => setEditMsg(msg)} />
                           <ActionBtn icon={copied === msg.id ? '✓' : '📋'} label={copied === msg.id ? 'Copied!' : 'Copy'} onClick={() => copy(msg.content, msg.id)} active={copied === msg.id} />
                         </>
                       ) : (
-                        // Assistant message actions: Copy + Share + Retry
                         i > 0 && <>
                           <ActionBtn icon={copied === msg.id ? '✓' : '📋'} label={copied === msg.id ? 'Copied!' : 'Copy'} onClick={() => copy(msg.content, msg.id)} active={copied === msg.id} />
                           <ActionBtn icon="↗️" label="Share" onClick={() => setShareMsg(msg.content)} />
@@ -773,7 +831,7 @@ export default function AI() {
           {messages.length <= 1 && (
             <div style={{ padding: '0 1.25rem', marginBottom: '0.75rem' }}>
               <div style={{ fontSize: 11, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontWeight: 600 }}>✨ Quick Start</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
                 {SUGGESTIONS.map(s => (
                   <button key={s.text} onClick={() => sendMessage(s.text)}
                     style={{
@@ -798,7 +856,7 @@ export default function AI() {
             {file && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '6px 10px', background: 'rgba(99,102,241,0.1)', borderRadius: 'var(--r-sm)', fontSize: 12, border: '1px solid rgba(99,102,241,0.2)' }}>
                 <span>📎</span>
-                <span style={{ flex: 1, color: '#a5b4fc' }}>{file.name}</span>
+                <span style={{ flex: 1, color: '#a5b4fc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
                 <button onClick={() => { setFile(null); setFileData(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 14 }}>✕</button>
               </div>
             )}
@@ -816,8 +874,8 @@ export default function AI() {
                 ref={textareaRef}
                 value={input}
                 onChange={handleTextareaChange}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="Ask anything… (Enter to send, Shift+Enter for new line)"
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); sendMessage(); } }}
+                placeholder={isMobile ? 'Ask anything…' : 'Ask anything… (Enter to send, Shift+Enter for new line)'}
                 rows={1}
                 style={{
                   flex: 1, minHeight: 24, maxHeight: 140, resize: 'none',
