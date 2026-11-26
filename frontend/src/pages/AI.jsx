@@ -281,13 +281,16 @@ function renderMarkdown(text, onCopyCode) {
 }
 
 // Inline formatting: bold, italic, inline code
+function escapeHtml(t) {
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 function inlineFormat(text) {
-  return text
+  return escapeHtml(text)
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text);font-weight:700">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em style="color:#c4b5fd">$1</em>')
     .replace(/`([^`]+)`/g, '<code style="background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.25);padding:1px 7px;border-radius:5px;font-size:0.88em;font-family:monospace;color:#a5b4fc">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#818cf8;text-decoration:underline">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#818cf8;text-decoration:underline">$1</a>');
 }
 
 // ── Action button ─────────────────────────────────────────────────────────────
@@ -515,6 +518,7 @@ export default function AI() {
     role: 'assistant',
     content: `Hello ${user?.name?.split(' ')[0] || 'there'}! 👋 I'm your **TaskFlow AI assistant**. I can help you with:\n\n- 📋 Project planning & task management\n- ✍️ Writing proposals, agendas & templates\n- 🧠 Brainstorming & strategy\n- 💻 Code help & technical questions\n- 🌐 Any question you have\n\nWhat can I help you with today?`,
     id: 'welcome',
+    isWelcome: true,
   });
 
   // ── CRITICAL FIX: chats are now scoped to user.id ─────────────────────────
@@ -580,20 +584,29 @@ export default function AI() {
 
   const handleFile = (e) => {
     const f = e.target.files[0];
+    e.target.value = '';
     if (!f) return;
+    if (f.size > 500 * 1024) {
+      alert('File is too large (max 500 KB). Please attach a smaller text file.');
+      return;
+    }
     setFile(f);
     const reader = new FileReader();
-    reader.onload = ev => setFileData({ name: f.name, type: f.type, data: ev.target.result });
-    if (f.type.startsWith('image/')) reader.readAsDataURL(f);
-    else reader.readAsText(f);
+    reader.onload = ev => setFileData({ name: f.name, type: f.type || 'text/plain', data: ev.target.result });
+    reader.onerror = () => { setFile(null); setFileData(null); };
+    reader.readAsText(f);
   };
 
-  const sendMessage = async (text) => {
-    const q = text || input.trim();
+  // `baseMessages` = conversation BEFORE the new user message (so retry/edit
+  // never read stale state or duplicate the user turn).
+  const sendMessage = async (text, baseMessages) => {
+    const q = (typeof text === 'string' ? text : input).trim();
     if (!q && !fileData) return;
+    if (loading) return;
 
+    const base = baseMessages || messages;
     const userMsg = { role: 'user', content: q, file: fileData, id: genChatId() };
-    setMessages(m => [...m, userMsg]);
+    setMessages([...base, userMsg]);
     setInput('');
     setFile(null);
     setFileData(null);
@@ -601,37 +614,39 @@ export default function AI() {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     try {
-      const apiMessages = [];
-      const history = [...messages, userMsg].slice(-10);
-      for (const msg of history) {
-        if (msg.role === 'user') {
-          const parts = [];
-          if (msg.file?.type?.startsWith('image/')) {
-            parts.push({ type: 'image', source: { type: 'base64', media_type: msg.file.type, data: msg.file.data.split(',')[1] } });
-          }
-          if (msg.content) parts.push({ type: 'text', text: msg.file && !msg.file.type.startsWith('image/') ? `[File: ${msg.file.name}]\n${msg.file.data}\n\n${msg.content}` : msg.content });
-          if (parts.length) apiMessages.push({ role: 'user', content: parts.length === 1 && parts[0].type === 'text' ? parts[0].text : parts });
-        } else {
-          apiMessages.push({ role: 'assistant', content: msg.content });
-        }
-      }
+      // Text-only history: skip welcome + saved error bubbles, inline text files.
+      const apiMessages = [...base, userMsg]
+        .filter(m => !m.isError && !m.isWelcome && (m.role === 'user' || m.role === 'assistant') && (m.content || m.file))
+        .slice(-10)
+        .map(m => {
+          if (m.role !== 'user') return { role: 'assistant', content: m.content };
+          const body = m.file ? `[File: ${m.file.name}]\n${m.file.data}\n\n${m.content || ''}` : m.content;
+          return { role: 'user', content: body };
+        });
+      while (apiMessages.length && apiMessages[0].role !== 'user') apiMessages.shift();
 
       const systemPrompt = `You are an expert AI assistant integrated into TaskFlow, a team task management platform. You help users with project planning, task management, productivity, writing, brainstorming, and answering any questions. The current user is ${user?.name} with role ${user?.role}. Be helpful, concise, and professional. Use markdown formatting when appropriate.`;
       const response = await aiAPI.chat(apiMessages, systemPrompt);
       const reply = response.data?.content || 'Sorry, I could not generate a response.';
       setMessages(m => [...m, { role: 'assistant', content: reply, id: genChatId() }]);
-    } catch {
-      setMessages(m => [...m, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.', id: genChatId() }]);
+    } catch (err) {
+      const detail = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Unknown error';
+      console.error('AI chat failed:', err?.response?.status, detail);
+      setMessages(m => [...m, { role: 'assistant', content: `⚠️ ${detail}`, isError: true, id: genChatId() }]);
     } finally {
       setLoading(false);
     }
   };
 
   const retryLast = () => {
-    const lastUser = [...messages].reverse().find(m => m.role === 'user');
-    if (!lastUser) return;
-    setMessages(m => m.filter((_, i) => i < m.length - 1 || m[m.length - 1].role !== 'assistant'));
-    sendMessage(lastUser.content);
+    if (loading) return;
+    let idx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'user') { idx = i; break; } }
+    if (idx < 0) return;
+    const lastUser = messages[idx];
+    // Re-send from the state before that user message, restoring its attachment.
+    setFileData(lastUser.file || null);
+    sendMessage(lastUser.content || '', messages.slice(0, idx));
   };
 
   const startNewChat = () => {
@@ -866,7 +881,7 @@ export default function AI() {
             }}
             onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'}
             onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--border-hi)'}>
-              <input ref={fileRef} type="file" accept="image/*,.pdf,.txt,.csv,.md" onChange={handleFile} style={{ display: 'none' }}/>
+              <input ref={fileRef} type="file" accept=".txt,.csv,.md,.json,.log,text/*" onChange={handleFile} style={{ display: 'none' }}/>
               <button onClick={() => fileRef.current?.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 18, padding: '4px 6px', borderRadius: 8, flexShrink: 0 }} title="Attach file">📎</button>
               <textarea
                 ref={textareaRef}
