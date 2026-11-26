@@ -27,7 +27,13 @@ function loadChats(userId) {
 function saveChats(userId, chats) {
   const key = storageKeyFor(userId);
   if (!key) return;
-  try { localStorage.setItem(key, JSON.stringify(chats.slice(0, 30))); } catch {}
+  // Image bytes are big; keep them only in memory, persist just the file name.
+  const slim = chats.slice(0, 30).map(c => ({
+    ...c,
+    messages: (c.messages || []).map(m =>
+      m.file?.type?.startsWith('image/') ? { ...m, file: { name: m.file.name, type: m.file.type, data: null } } : m),
+  }));
+  try { localStorage.setItem(key, JSON.stringify(slim)); } catch {}
 }
 function genChatId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -127,6 +133,38 @@ function renderMarkdown(text, onCopyCode) {
       continue;
     }
 
+    // Table (markdown pipes)
+    if (line.trim().startsWith('|') && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+      const splitRow = (r) => r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+      const head = splitRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) { rows.push(splitRow(lines[i])); i++; }
+      elements.push(
+        <div key={keyCounter++} style={{ overflowX: 'auto', margin: '12px 0', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10 }}>
+          <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13.5, minWidth: 360 }}>
+            <thead>
+              <tr>{head.map((h, ci) => (
+                <th key={ci} style={{ textAlign: 'left', padding: '9px 12px', background: 'rgba(99,102,241,0.14)', color: '#c4b5fd', fontWeight: 700, borderBottom: '1px solid rgba(99,102,241,0.25)', whiteSpace: 'nowrap' }}
+                  dangerouslySetInnerHTML={{ __html: inlineFormat(h) }}/>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri} style={{ background: ri % 2 ? 'rgba(255,255,255,0.025)' : 'transparent' }}>
+                  {head.map((_, ci) => (
+                    <td key={ci} style={{ padding: '8px 12px', color: 'var(--text-2)', verticalAlign: 'top', lineHeight: 1.6, borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                      dangerouslySetInnerHTML={{ __html: inlineFormat(r[ci] || '') }}/>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
     // H1
     if (line.startsWith('# ')) {
       elements.push(
@@ -136,7 +174,7 @@ function renderMarkdown(text, onCopyCode) {
           borderBottom: '2px solid rgba(99,102,241,0.3)', paddingBottom: 8,
           background: 'linear-gradient(135deg,#a5b4fc,#c4b5fd)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-        }}>{line.slice(2)}</h1>
+        }} dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}/>
       );
       i++; continue;
     }
@@ -150,7 +188,7 @@ function renderMarkdown(text, onCopyCode) {
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ width: 3, height: 18, background: 'linear-gradient(#6366f1,#8b5cf6)', borderRadius: 2, display: 'inline-block', flexShrink: 0 }}/>
-          {line.slice(3)}
+          <span dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(3)) }}/>
         </h2>
       );
       i++; continue;
@@ -162,7 +200,7 @@ function renderMarkdown(text, onCopyCode) {
         <h3 key={keyCounter++} style={{
           fontSize: 15, fontWeight: 700, color: '#a5b4fc',
           margin: '14px 0 6px',
-        }}>{line.slice(4)}</h3>
+        }} dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(4)) }}/>
       );
       i++; continue;
     }
@@ -173,13 +211,13 @@ function renderMarkdown(text, onCopyCode) {
         <h4 key={keyCounter++} style={{
           fontSize: 13, fontWeight: 700, color: '#94a3b8',
           margin: '10px 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>{line.slice(5)}</h4>
+        }} dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(5)) }}/>
       );
       i++; continue;
     }
 
     // Horizontal rule
-    if (line.startsWith('---') || line.startsWith('***')) {
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
       elements.push(
         <hr key={keyCounter++} style={{
           border: 'none', borderTop: '1px solid rgba(99,102,241,0.2)',
@@ -190,10 +228,10 @@ function renderMarkdown(text, onCopyCode) {
     }
 
     // Unordered list
-    if (line.match(/^[-*•] /)) {
+    if (/^\s*[-*•] /.test(line)) {
       const listItems = [];
-      while (i < lines.length && lines[i].match(/^[-*•] /)) {
-        listItems.push(lines[i].slice(2));
+      while (i < lines.length && /^\s*[-*•] /.test(lines[i])) {
+        listItems.push(lines[i].replace(/^\s*[-*•] /, ''));
         i++;
       }
       elements.push(
@@ -216,10 +254,11 @@ function renderMarkdown(text, onCopyCode) {
     }
 
     // Ordered list
-    if (line.match(/^\d+\. /)) {
+    if (/^\s*\d+[.)] /.test(line)) {
       const listItems = [];
-      while (i < lines.length && lines[i].match(/^\d+\. /)) {
-        listItems.push(lines[i].replace(/^\d+\. /, ''));
+      const startNum = parseInt(line.trim(), 10) || 1;
+      while (i < lines.length && /^\s*\d+[.)] /.test(lines[i])) {
+        listItems.push(lines[i].replace(/^\s*\d+[.)] /, ''));
         i++;
       }
       elements.push(
@@ -234,7 +273,7 @@ function renderMarkdown(text, onCopyCode) {
                 background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 11, fontWeight: 700, color: '#a5b4fc', flexShrink: 0,
-              }}>{idx + 1}</span>
+              }}>{startNum + idx}</span>
               <span dangerouslySetInnerHTML={{ __html: inlineFormat(item) }}/>
             </li>
           ))}
@@ -286,6 +325,8 @@ function escapeHtml(t) {
 }
 function inlineFormat(text) {
   return escapeHtml(text)
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text);font-weight:700">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em style="color:#c4b5fd">$1</em>')
@@ -586,6 +627,32 @@ export default function AI() {
     const f = e.target.files[0];
     e.target.value = '';
     if (!f) return;
+
+    if (f.type.startsWith('image/')) {
+      if (f.size > 15 * 1024 * 1024) { alert('Image is too large (max 15 MB).'); return; }
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        // Downscale so the request stays small and fast.
+        const MAX = 1280;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';              // flatten transparency (PNG) for JPEG
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        URL.revokeObjectURL(url);
+        setFile(f);
+        setFileData({ name: f.name, type: 'image/jpeg', data: dataUrl });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); alert('Could not read that image. Try a PNG or JPG.'); };
+      img.src = url;
+      return;
+    }
+
     if (f.size > 500 * 1024) {
       alert('File is too large (max 500 KB). Please attach a smaller text file.');
       return;
@@ -603,6 +670,7 @@ export default function AI() {
     const q = (typeof text === 'string' ? text : input).trim();
     if (!q && !fileData) return;
     if (loading) return;
+    if (fileData?.type?.startsWith('image/') && !q) { /* image with no text is allowed */ }
 
     const base = baseMessages || messages;
     const userMsg = { role: 'user', content: q, file: fileData, id: genChatId() };
@@ -620,6 +688,17 @@ export default function AI() {
         .slice(-10)
         .map(m => {
           if (m.role !== 'user') return { role: 'assistant', content: m.content };
+          const isImg = m.file?.type?.startsWith('image/');
+          if (isImg) {
+            const text = m.content || 'Describe this image and explain what it shows.';
+            if (m.id === userMsg.id && m.file.data) {
+              return { role: 'user', content: [
+                { type: 'text', text },
+                { type: 'image_url', image_url: { url: m.file.data } },
+              ] };
+            }
+            return { role: 'user', content: `[Earlier image: ${m.file.name}]\n${text}` };
+          }
           const body = m.file ? `[File: ${m.file.name}]\n${m.file.data}\n\n${m.content || ''}` : m.content;
           return { role: 'user', content: body };
         });
@@ -786,13 +865,14 @@ export default function AI() {
                       wordBreak: 'break-word',
                     }}>
                       {msg.file && msg.file.type?.startsWith('image/') && (
-                        <img src={msg.file.data} alt={msg.file.name} style={{ width: '100%', borderRadius: 'var(--r-sm)', marginBottom: 8, maxHeight: 200, objectFit: 'cover' }}/>
+                        msg.file.data ? <img src={msg.file.data} alt={msg.file.name} style={{ width: '100%', borderRadius: 'var(--r-sm)', marginBottom: 8, maxHeight: 200, objectFit: 'cover' }}/>
+                          : <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, marginBottom: 8 }}>🖼️ {msg.file.name}</div>
                       )}
                       {msg.file && !msg.file.type?.startsWith('image/') && (
                         <div style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12, marginBottom: 8 }}>📎 {msg.file.name}</div>
                       )}
                       {msg.role === 'user'
-                        ? <span>{msg.content}</span>
+                        ? <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                         : <div>{renderMarkdown(msg.content, handleCopyCode)}</div>
                       }
                     </div>
@@ -881,7 +961,7 @@ export default function AI() {
             }}
             onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'}
             onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--border-hi)'}>
-              <input ref={fileRef} type="file" accept=".txt,.csv,.md,.json,.log,text/*" onChange={handleFile} style={{ display: 'none' }}/>
+              <input ref={fileRef} type="file" accept="image/*,.txt,.csv,.md,.json,.log,text/*" onChange={handleFile} style={{ display: 'none' }}/>
               <button onClick={() => fileRef.current?.click()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: 18, padding: '4px 6px', borderRadius: 8, flexShrink: 0 }} title="Attach file">📎</button>
               <textarea
                 ref={textareaRef}

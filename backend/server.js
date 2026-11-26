@@ -25,6 +25,7 @@ app.use(cors({
   },
   credentials: true,
 }));
+app.use('/api/ai', express.json({ limit: '25mb' }));
 app.use(express.json());
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
