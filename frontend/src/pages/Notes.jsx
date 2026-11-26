@@ -72,15 +72,22 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime });
 }
 
-// Opening a data: URL in a new tab is blocked by browsers; a blob: URL works.
-function openAttachment(dataUrl) {
+// Open an attachment in a new tab. Uses a real <a target="_blank"> click on a
+// blob: URL (not window.open), which Brave/Chrome don't treat as a pop-up.
+function openAttachment(dataUrl, name) {
   try {
     const url = URL.createObjectURL(dataUrlToBlob(dataUrl));
-    const w = window.open(url, '_blank');
-    if (!w) alert('Your browser blocked the preview pop-up. Allow pop-ups for this site, or use Download.');
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    if (name) a.title = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
   } catch {
-    alert('Could not open this attachment. Try Download instead.');
+    alert('Could not open this attachment. Use Download instead.');
   }
 }
 
@@ -173,7 +180,7 @@ function NoteDetail({ note, onBack, onEdit, onDelete }) {
                     style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 12, textDecoration: 'none', cursor: 'pointer' }}>
                     ⬇️ Download
                   </a>
-                  <button onClick={() => openAttachment(note.imageUrl)}
+                  <button onClick={() => openAttachment(note.imageUrl, note.attachmentName)}
                     style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}>
                     🔍 Preview
                   </button>
@@ -194,7 +201,7 @@ function NoteDetail({ note, onBack, onEdit, onDelete }) {
                     style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc', fontSize: 12, textDecoration: 'none' }}>
                     ⬇️ Download PDF
                   </a>
-                  <button onClick={() => openAttachment(note.imageUrl)}
+                  <button onClick={() => openAttachment(note.imageUrl, note.attachmentName)}
                     style={{ padding: '6px 14px', borderRadius: 'var(--r-sm)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 12, cursor: 'pointer' }}>
                     🔍 Open in new tab
                   </button>
