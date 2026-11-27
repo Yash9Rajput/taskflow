@@ -281,7 +281,7 @@ router.post('/login',
       }
 
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar || null, handle: user.handle || null } });
     } catch (err) {
       console.error('Login error:', err);
       res.status(500).json({ error: 'Internal server error' });
@@ -290,7 +290,17 @@ router.post('/login',
 );
 
 // GET /api/auth/me
-router.get('/me', authenticate, (req, res) => res.json({ user: req.user }));
+// Returns the current user including profile photo + handle, so a page reload keeps the avatar.
+router.get('/me', authenticate, async (req, res) => {
+  try {
+    const db = getDb();
+    const u  = await db.prepare('SELECT id, name, email, role, avatar, handle FROM users WHERE id = ?').get(req.user.id);
+    res.json({ user: u || req.user });
+  } catch (err) {
+    console.error('Me error:', err);
+    res.json({ user: req.user });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GOOGLE OAUTH

@@ -19,6 +19,12 @@ const PALETTES = [
 function palette(name='') { return PALETTES[name.charCodeAt(0)%PALETTES.length]; }
 
 export function Avatar({ user, size=32 }) {
+  if (user?.avatar) {
+    return (
+      <img className="avatar" src={user.avatar} alt={user?.name||'avatar'}
+        style={{width:size,height:size,objectFit:'cover',border:'1.5px solid rgba(255,255,255,0.14)'}}/>
+    );
+  }
   const name = user?.name||'?';
   const initials = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
   const [accent] = palette(name);

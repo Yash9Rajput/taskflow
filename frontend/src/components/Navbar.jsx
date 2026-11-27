@@ -126,7 +126,8 @@ export default function Navbar() {
 
               {profileOpen && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: 'var(--bg-card)', border: '1px solid var(--border-hi)', borderRadius: 'var(--r-lg)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)', zIndex: 500, overflow: 'hidden', animation: 'scaleIn 0.2s ease' }}>
-                  <div style={{ padding: '1.25rem', background: 'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', borderBottom: '1px solid var(--border)' }}>
+                  <div onClick={() => { navigate('/profile'); setProfileOpen(false); }}
+                    style={{ padding: '1.25rem', background: 'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08))', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <Avatar user={user} size={44}/>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -145,12 +146,10 @@ export default function Navbar() {
                   <div style={{ padding: '8px 1rem 4px', fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>My Account</div>
 
                   {[
-                    { icon: '⊞', label: 'Dashboard',   sub: 'Overview & stats',      to: '/' },
-                    { icon: '◫', label: 'My Projects',  sub: 'Projects you manage',   to: '/projects' },
-                    { icon: '☑', label: 'My Tasks',     sub: 'Tasks assigned to you', to: '/tasks' },
-                    { icon: '👥', label: 'My Team',     sub: 'Team members',          to: '/team' },
-                    { icon: '📝', label: 'Notes',       sub: 'Your personal notes',   to: '/notes' },
-                    { icon: '✦', label: 'AI Assistant', sub: 'Ask anything',          to: '/ai' },
+                    { icon: '👤', label: 'Profile',      sub: 'View your profile',          to: '/profile' },
+                    { icon: '✎',  label: 'Edit Profile', sub: 'Update your photo & details', to: '/profile/edit' },
+                    { icon: '🪪', label: 'Profile Card', sub: 'Share your TaskFlow card',    to: '/profile/card' },
+                    { icon: '⊞',  label: 'Dashboard',    sub: 'Overview & stats',            to: '/' },
                   ].map(item => (
                     <div key={item.label}
                       onClick={() => { navigate(item.to); setProfileOpen(false); }}
@@ -256,6 +255,26 @@ export default function Navbar() {
                   })}>
                   <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{icon}</span>
                   {label}
+                </NavLink>
+              ))}
+            </div>
+
+            {/* Profile shortcuts */}
+            <div style={{ padding: '0 0.75rem 0.5rem', flexShrink: 0 }}>
+              {[
+                { to: '/profile',      icon: '👤', label: 'Profile' },
+                { to: '/profile/edit', icon: '✎',  label: 'Edit Profile' },
+                { to: '/profile/card', icon: '🪪', label: 'Profile Card' },
+              ].map(({ to, icon, label }) => (
+                <NavLink key={to} to={to} end onClick={handleNav}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '11px 14px', borderRadius: 12, marginBottom: 4,
+                    textDecoration: 'none', fontSize: 14, fontWeight: 500,
+                    color: isActive ? '#a5b4fc' : 'var(--text-2)',
+                    background: isActive ? 'rgba(99,102,241,0.12)' : 'transparent',
+                    border: `1px solid ${isActive ? 'rgba(99,102,241,0.25)' : 'transparent'}`,
+                  })}>
+                  <span style={{ fontSize: 17, width: 24, textAlign: 'center' }}>{icon}</span>{label}
                 </NavLink>
               ))}
             </div>

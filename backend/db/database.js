@@ -45,6 +45,15 @@ async function initPostgres() {
   `);
   // Migration: drop NOT NULL on project_id for already-deployed DBs
   try { await pool.query('ALTER TABLE tasks ALTER COLUMN project_id DROP NOT NULL'); console.log('Migration: project_id nullable'); } catch(e) { /* already nullable or fresh DB */ }
+  // ── Profile columns (safe to run on every start) ───────────────────────────
+  const PROFILE_COLS = ['handle TEXT','bio TEXT','country TEXT','college TEXT','degree TEXT','branch TEXT','grad_year TEXT','github TEXT','linkedin TEXT','website TEXT','skills TEXT','avatar TEXT','card_public INTEGER DEFAULT 0'];
+  for (const c of PROFILE_COLS) {
+    try { await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${c}`); }
+    catch (e) { console.error('Profile column migration failed:', c, e.message); }
+  }
+  try { await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_handle_uq ON users (LOWER(handle)) WHERE handle IS NOT NULL'); } catch (e) { console.error('handle index:', e.message); }
+  // Google sign-in users have no password
+  try { await pool.query('ALTER TABLE users ALTER COLUMN password DROP NOT NULL'); } catch (e) { /* already nullable */ }
   console.log('PostgreSQL ready');
 }
 
@@ -65,6 +74,9 @@ async function initSqlite() {
     exec(sql) { rawDb.run(sql); persist(); },
   };
   rawDb.run(`CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'member',created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT'',created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')));CREATE TABLE IF NOT EXISTS project_members(project_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(project_id,user_id));CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY,project_id TEXT,title TEXT NOT NULL,description TEXT DEFAULT'',status TEXT NOT NULL DEFAULT'todo',priority TEXT NOT NULL DEFAULT'medium',assignee_id TEXT,due_date TEXT,created_by TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT(datetime('now')),updated_at TEXT NOT NULL DEFAULT(datetime('now')));`);
+  for (const c of ['handle TEXT','bio TEXT','country TEXT','college TEXT','degree TEXT','branch TEXT','grad_year TEXT','github TEXT','linkedin TEXT','website TEXT','skills TEXT','avatar TEXT','card_public INTEGER DEFAULT 0']) {
+    try { rawDb.run(`ALTER TABLE users ADD COLUMN ${c}`); } catch (e) { /* column exists */ }
+  }
   persist();
   console.log('SQLite ready (sql.js)');
 }

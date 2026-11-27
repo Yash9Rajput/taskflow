@@ -20,6 +20,10 @@ import Tasks           from './pages/Tasks';
 import Team            from './pages/Team';
 import Notes           from './pages/Notes';
 import AI              from './pages/AI';
+import Profile         from './pages/Profile';
+import EditProfile     from './pages/EditProfile';
+import ProfileCard     from './pages/ProfileCard';
+import PublicCard      from './pages/PublicCard';
 
 // Static pages
 import AboutTaskFlow   from './pages/AboutTaskFlow';
@@ -103,6 +107,10 @@ export default function App() {
             <Route path="/auth/callback"
               element={<PublicLayout><GoogleCallback/></PublicLayout>} />
 
+            {/* Public shareable profile card — no login needed */}
+            <Route path="/u/:handle"
+              element={<PublicLayout><PublicCard/></PublicLayout>} />
+
             {/* ── Static public pages ─────────────────────────────────────── */}
             <Route element={<StaticLayout/>}>
               <Route path="/about"     element={<AboutTaskFlow/>}  />
@@ -118,6 +126,9 @@ export default function App() {
               <Route path="/team"     element={<Team/>}       />
               <Route path="/notes"    element={<Notes/>}      />
               <Route path="/ai"       element={<AI/>}         />
+              <Route path="/profile"      element={<Profile/>}      />
+              <Route path="/profile/edit" element={<EditProfile/>}  />
+              <Route path="/profile/card" element={<ProfileCard/>}  />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
