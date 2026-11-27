@@ -5,6 +5,7 @@ import api from '../api';
 import { Spinner } from '../components/UI';
 import ProfileCardView from '../components/ProfileCardView';
 import useMyProfile from '../components/useMyProfile';
+import LinkRow, { copyText } from '../components/LinkRow';
 
 export default function ProfileCard() {
   const navigate = useNavigate();
@@ -56,17 +57,16 @@ export default function ProfileCard() {
     finally { setBusy(false); }
   };
 
-  const needPublic = () => flash('err', 'Make your card public first to get a shareable link.');
+  const needPublic = (m) => flash('err', typeof m === 'string' && m ? m : 'Make your card public first to get a shareable link.');
 
   const copyLink = async () => {
     if (!profile.card_public) return needPublic();
-    try { await navigator.clipboard.writeText(link); flash('ok', 'Link copied to clipboard.'); }
-    catch { flash('err', `Copy failed. Your link: ${link}`); }
+    const ok = await copyText(link);
+    ok ? flash('ok', 'Link copied to clipboard.') : flash('err', `Copy failed. Your link: ${link}`);
   };
-  const openLink = () => profile.card_public ? window.open(link, '_blank', 'noopener') : needPublic();
-  const shareLinkedIn = () => profile.card_public
-    ? window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`, '_blank', 'noopener')
-    : needPublic();
+  // Real <a target="_blank"> links (below) are used for opening — pop-up blockers don't stop those.
+  const guard = (e) => { if (!profile.card_public) { e.preventDefault(); needPublic(); } };
+  const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`;
 
   const iconBtn = { width: 40, height: 40, borderRadius: 10, border: '1px solid var(--border-hi)', background: 'rgba(255,255,255,0.04)', color: 'var(--text)', cursor: 'pointer', fontSize: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
 
@@ -112,12 +112,14 @@ export default function ProfileCard() {
               )}
             </div>
             <button style={iconBtn} title="Copy link" onClick={copyLink}>🔗</button>
-            <button style={iconBtn} title="Open public card" onClick={openLink}>↗</button>
+            <a style={{ ...iconBtn, textDecoration: 'none' }} title="Open public card in a new tab"
+              href={link} target="_blank" rel="noopener noreferrer" onClick={guard}>↗</a>
           </div>
 
-          <button onClick={shareLinkedIn} className="btn" style={{ background: '#2563eb', borderColor: '#2563eb', color: '#fff', padding: '9px 18px', fontWeight: 600 }}>
+          <a href={linkedInUrl} target="_blank" rel="noopener noreferrer" onClick={guard} className="btn"
+            style={{ background: '#2563eb', borderColor: '#2563eb', color: '#fff', padding: '9px 18px', fontWeight: 600, textDecoration: 'none' }}>
             <span style={{ fontWeight: 800 }}>in</span> Share on LinkedIn
-          </button>
+          </a>
 
           {!profile.card_public && (
             <div style={{ marginTop: 4, padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 12, color: '#fcd34d', lineHeight: 1.6, maxWidth: 320 }}>
@@ -128,7 +130,10 @@ export default function ProfileCard() {
             </div>
           )}
           {profile.card_public && (
-            <div style={{ fontSize: 12, color: 'var(--text-3)', wordBreak: 'break-all', maxWidth: 320 }}>Public link: <span style={{ color: '#a5b4fc' }}>{link}</span></div>
+            <div style={{ width: '100%', maxWidth: 340 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Public link · hover for options</div>
+              <LinkRow url={link} enabled onCopied={() => flash('ok', 'Link copied to clipboard.')} onBlocked={(m) => flash('err', m || 'Could not copy the link.')} />
+            </div>
           )}
 
           {note && (

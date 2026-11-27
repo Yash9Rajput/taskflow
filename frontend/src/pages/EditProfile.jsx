@@ -4,11 +4,14 @@ import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, Spinner } from '../components/UI';
 import useMyProfile from '../components/useMyProfile';
+import PhotoCropper from '../components/PhotoCropper';
+import SelectOther from '../components/SelectOther';
+import LinkRow from '../components/LinkRow';
 
-const COUNTRIES = ['India','United States','United Kingdom','Canada','Australia','Germany','France','Singapore','United Arab Emirates','Nepal','Bangladesh','Sri Lanka','Pakistan','Japan','China','Netherlands','Ireland','Sweden','Switzerland','New Zealand','South Africa','Brazil','Other'];
-const DEGREES   = ['Bachelor of Technology','Bachelor of Engineering','Bachelor of Science','Bachelor of Computer Applications','Master of Technology','Master of Science','Master of Computer Applications','MBA','Diploma','Other'];
-const BRANCHES  = ['Computer Science','Information Technology','Electronics & Communication','Electrical Engineering','Mechanical Engineering','Civil Engineering','Data Science','Artificial Intelligence','Other'];
-const YEARS     = Array.from({ length: 16 }, (_, i) => String(2020 + i));
+const COUNTRIES = ['India','United States','United Kingdom','Canada','Australia','Germany','France','Singapore','United Arab Emirates','Nepal','Bangladesh','Sri Lanka','Pakistan','Japan','China','Netherlands','Ireland','Sweden','Switzerland','New Zealand','South Africa','Brazil'];
+const DEGREES   = ['Bachelor of Technology','Bachelor of Engineering','Bachelor of Science','Bachelor of Computer Applications','Master of Technology','Master of Science','Master of Computer Applications','MBA','Diploma'];
+const BRANCHES  = ['Computer Science','Information Technology','Electronics & Communication','Electrical Engineering','Mechanical Engineering','Civil Engineering','Data Science','Artificial Intelligence'];
+const YEARS     = Array.from({ length: 16 }, (_, i) => String(2020 + i));   // anything else: pick "Other" and type it
 
 const TABS = [
   { id: 'basic',      icon: '👤', label: 'Basic Info' },
@@ -22,34 +25,6 @@ const Label = ({ children, required }) => (
   </label>
 );
 
-// Centre-crop to a square and shrink to a small JPEG (fits the database comfortably).
-function fileToAvatar(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      const tryEncode = (size, quality) => {
-        const side = Math.min(img.width, img.height);
-        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
-        const c = document.createElement('canvas');
-        c.width = c.height = size;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-        return c.toDataURL('image/jpeg', quality);
-      };
-      let out = tryEncode(256, 0.85);
-      if (out.length > 85000) out = tryEncode(256, 0.7);
-      if (out.length > 85000) out = tryEncode(192, 0.7);
-      URL.revokeObjectURL(url);
-      out.length > 85000 ? reject(new Error('Photo is too complex. Try a different image.')) : resolve(out);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image. Use a PNG, JPG or WebP file.')); };
-    img.src = url;
-  });
-}
-
 export default function EditProfile() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
@@ -61,6 +36,8 @@ export default function EditProfile() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg]       = useState(null);       // {type:'ok'|'err', text}
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [cropFile, setCropFile]   = useState(null);   // file waiting to be cropped
+  const [linkNote, setLinkNote]   = useState('');
   const [avatar, setAvatar] = useState(null);
   const fileRef = useRef(null);
 
@@ -89,14 +66,19 @@ export default function EditProfile() {
   const errText = (e, fallback) => e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || e?.message || fallback;
 
   // ── photo ──────────────────────────────────────────────────────────────────
-  const onPickPhoto = async (e) => {
+  const onPickPhoto = (e) => {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) { setMsg({ type: 'err', text: 'Please choose an image file.' }); return; }
+    setMsg(null);
+    setCropFile(file);            // opens the crop window — nothing is uploaded yet
+  };
+
+  const onCropSave = async (dataUrl) => {
+    setCropFile(null);
     setPhotoBusy(true); setMsg(null);
     try {
-      const dataUrl = await fileToAvatar(file);
       await api.put('/users/me/avatar', { avatar: dataUrl });
       setAvatar(dataUrl);
       updateUser({ avatar: dataUrl });
@@ -146,17 +128,13 @@ export default function EditProfile() {
     finally { setSaving(false); }
   };
 
-  const select = (k, options, placeholder) => (
-    <select value={form[k]} onChange={e => set(k, e.target.value)}>
-      <option value="">{placeholder}</option>
-      {[...new Set([...(form[k] && !options.includes(form[k]) ? [form[k]] : []), ...options])].map(o => <option key={o} value={o}>{o}</option>)}
-    </select>
-  );
-
   const publicUrl = `${window.location.origin}/u/${form.handle || profile.handle}`;
+  // the link only works once it is saved as public with the saved username
+  const linkActive = profile.card_public && (form.handle || profile.handle) === profile.handle;
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      {cropFile && <PhotoCropper file={cropFile} onCancel={() => setCropFile(null)} onSave={onCropSave} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px,230px) 1fr', gap: 20, alignItems: 'start' }} className="ep-grid">
         {/* sidebar */}
         <div className="card" style={{ padding: '0.75rem' }}>
@@ -197,7 +175,7 @@ export default function EditProfile() {
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.7 }}>
                     Click <strong>✎</strong> to upload a new photo{avatar ? <>, or <strong>✕</strong> to remove it</> : ''}.<br />
-                    <span style={{ color: 'var(--text-3)' }}>PNG, JPG or WebP · it is cropped to a square automatically.</span>
+                    <span style={{ color: 'var(--text-3)' }}>PNG, JPG or WebP · you can drag and zoom to crop it before saving.</span>
                   </div>
                   {photoBusy && <div style={{ fontSize: 12, color: '#a5b4fc', marginTop: 6 }}>Uploading…</div>}
                 </div>
@@ -213,15 +191,15 @@ export default function EditProfile() {
                 <textarea value={form.bio} maxLength={200} onChange={e => set('bio', e.target.value)} placeholder="Turning logic into code and ideas into products…" style={{ minHeight: 90 }} />
                 <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>{form.bio.length}/200</div>
               </div>
-              <div className="field"><Label>Country</Label>{select('country', COUNTRIES, 'Select country')}</div>
+              <div className="field"><Label>Country</Label><SelectOther value={form.country} onChange={v => set('country', v)} options={COUNTRIES} placeholder="Select country" maxLength={60} otherPlaceholder="Type your country" /></div>
 
               <div style={{ fontFamily: 'var(--font-d)', fontSize: 17, fontWeight: 600, margin: '1.5rem 0 1rem' }}>Educational Details</div>
               <div className="field"><Label>School / College / University</Label><input value={form.college} onChange={e => set('college', e.target.value)} maxLength={120} placeholder="e.g. Chandigarh University" /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="ep-two">
-                <div className="field"><Label>Degree</Label>{select('degree', DEGREES, 'Select degree')}</div>
-                <div className="field"><Label>Branch</Label>{select('branch', BRANCHES, 'Select branch')}</div>
+                <div className="field"><Label>Degree</Label><SelectOther value={form.degree} onChange={v => set('degree', v)} options={DEGREES} placeholder="Select degree" otherPlaceholder="Type your degree" /></div>
+                <div className="field"><Label>Branch</Label><SelectOther value={form.branch} onChange={v => set('branch', v)} options={BRANCHES} placeholder="Select branch" otherPlaceholder="Type your branch" /></div>
               </div>
-              <div className="field"><Label>Year of Graduation</Label>{select('grad_year', YEARS, 'Select year')}</div>
+              <div className="field"><Label>Year of Graduation</Label><SelectOther value={form.grad_year} onChange={v => set('grad_year', v)} options={YEARS} placeholder="Select year" numeric maxLength={4} otherPlaceholder="Type your graduation year (e.g. 2038)" /></div>
             </>
           )}
 
@@ -275,9 +253,21 @@ export default function EditProfile() {
               <div className="field">
                 <Label>Username</Label>
                 <input value={form.handle} onChange={e => set('handle', e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))} maxLength={20} placeholder="your_username" />
-                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6, wordBreak: 'break-all' }}>
-                  3–20 letters, numbers or underscore. Your card link: <span style={{ color: form.card_public ? '#a5b4fc' : 'var(--text-3)' }}>{publicUrl}</span>
-                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 6 }}>3–20 letters, numbers or underscore.</div>
+              </div>
+
+              <div className="field">
+                <Label>Your card link</Label>
+                <LinkRow url={publicUrl}
+                  enabled={linkActive}
+                  onBlocked={(m) => setLinkNote(m || (!profile.card_public ? 'Turn on "Public Profile Card" and save to activate this link.' : 'Save your changes first so the link matches your new username.'))}
+                  onCopied={() => setLinkNote('')} />
+                {linkNote && <div style={{ fontSize: 12, color: '#fcd34d', marginTop: 8 }}>⚠ {linkNote}</div>}
+                {!linkActive && !linkNote && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8 }}>
+                    {!profile.card_public ? 'This link starts working after you turn the card public and save.' : 'Save your changes to activate the updated link.'}
+                  </div>
+                )}
               </div>
             </>
           )}
